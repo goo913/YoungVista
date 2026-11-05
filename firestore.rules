@@ -1,0 +1,45 @@
+rules_version = '2';
+
+// YoungVista Firestore rules. Owners read and write their own rooms; a share snapshot can be
+// read by anyone who has its link. Everything else is denied.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isUser(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function roomOwner(roomId) {
+      return get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerId;
+    }
+
+    // rooms/{roomId}: only the owner can read or write it, and ownerId can never change.
+    match /rooms/{roomId} {
+      allow read: if isUser(resource.data.ownerId);
+      allow create: if isUser(request.resource.data.ownerId);
+      allow update: if isUser(resource.data.ownerId)
+        && request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if isUser(resource.data.ownerId);
+
+      // Final picture metadata: only the owner of the room.
+      match /pictures/{pictureId} {
+        allow read, write: if isUser(roomOwner(roomId));
+      }
+    }
+
+    // shares/{shareId}: a read-only snapshot for a private link. Anyone with the (long, random)
+    // id can read it, nobody can list them, and only the owner of the shared room can create,
+    // change or delete (revoke) it. ownerId and roomId can never change.
+    match /shares/{shareId} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if isUser(request.resource.data.ownerId)
+        && shareId.size() >= 20
+        && roomOwner(request.resource.data.roomId) == request.auth.uid;
+      allow update: if isUser(resource.data.ownerId)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.roomId == resource.data.roomId;
+      allow delete: if isUser(resource.data.ownerId);
+    }
+  }
+}
