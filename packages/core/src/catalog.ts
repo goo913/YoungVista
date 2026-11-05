@@ -46,11 +46,14 @@ export interface CatalogDimensions {
 
 /** A colour or material option. `model` and `thumb` override the item's when the variant has its own files. */
 export interface CatalogVariant {
+  /** Stable id, saved in a design item's `variant`. */
   id: string;
   name: string;
   /** CSS colour for the swatch, e.g. `#6b5b4b`. */
   swatch?: string;
+  /** GLB path relative to `/catalog/`, e.g. `models/sofa-velvet--navy.glb`. */
   model?: string;
+  /** Thumbnail path relative to `/catalog/`, e.g. `thumbs/sofa-velvet--navy.webp`. */
   thumb?: string;
 }
 
@@ -60,15 +63,19 @@ export interface CatalogItem {
   category: CatalogCategory;
   dimensions: CatalogDimensions;
   placement: CatalogPlacement;
+  /**
+   * Colour options; empty when the item has one look. The first is the item's own look (no
+   * `model`, it uses the item's files); the others have their own `model` and `thumb`.
+   */
   variants: CatalogVariant[];
   license: CatalogLicense;
   /** Attribution to show on the credits screen, e.g. "Amazon.com" or "Wayfair". */
   credit: string;
-  /** Page the model came from. */
+  /** Page (or file) the model came from. */
   sourceUrl: string;
-  /** GLB path relative to `/catalog/`, e.g. `models/sofa-midtown.glb`. */
+  /** GLB path relative to `/catalog/`, e.g. `models/sofa-charcoal.glb`. */
   model: string;
-  /** Thumbnail path relative to `/catalog/`, e.g. `thumbs/sofa-midtown.webp`. */
+  /** Thumbnail path relative to `/catalog/`, e.g. `thumbs/sofa-charcoal.webp`. */
   thumb: string;
 }
 

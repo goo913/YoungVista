@@ -1,0 +1,674 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "sofa-charcoal",
+      "name": "Charcoal sofa",
+      "category": "sofa",
+      "dimensions": { "w": 2.339, "d": 0.94, "h": 0.8 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/F/B072C8Q9RF.glb",
+      "model": "models/sofa-charcoal.glb",
+      "thumb": "thumbs/sofa-charcoal.webp"
+    },
+    {
+      "id": "sofa-velvet",
+      "name": "Curved velvet sofa",
+      "category": "sofa",
+      "dimensions": { "w": 2.188, "d": 1.023, "h": 0.788 },
+      "placement": "floor",
+      "variants": [
+        { "id": "champagne", "name": "Champagne", "swatch": "#948579" },
+        {
+          "id": "navy",
+          "name": "Navy",
+          "swatch": "#2b456e",
+          "model": "models/sofa-velvet--navy.glb",
+          "thumb": "thumbs/sofa-velvet--navy.webp"
+        },
+        {
+          "id": "grey",
+          "name": "Grey",
+          "swatch": "#a1a3a1",
+          "model": "models/sofa-velvet--grey.glb",
+          "thumb": "thumbs/sofa-velvet--grey.webp"
+        },
+        {
+          "id": "black",
+          "name": "Black",
+          "swatch": "#3c3c3e",
+          "model": "models/sofa-velvet--black.glb",
+          "thumb": "thumbs/sofa-velvet--black.webp"
+        },
+        {
+          "id": "pale-pink",
+          "name": "Pale pink",
+          "swatch": "#e4c4c6",
+          "model": "models/sofa-velvet--pale-pink.glb",
+          "thumb": "thumbs/sofa-velvet--pale-pink.webp"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "credit": "Wayfair, LLC (Eric Chadwick)",
+      "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/8f492390ddc7a2ae221a1369ef560589cf8c70fb/Models/GlamVelvetSofa",
+      "model": "models/sofa-velvet.glb",
+      "thumb": "thumbs/sofa-velvet.webp"
+    },
+    {
+      "id": "sectional-chaise",
+      "name": "Sofa with chaise",
+      "category": "sectional",
+      "dimensions": { "w": 2.029, "d": 1.58, "h": 0.899 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/1/B072FVHRZ1.glb",
+      "model": "models/sectional-chaise.glb",
+      "thumb": "thumbs/sectional-chaise.webp"
+    },
+    {
+      "id": "armchair-accent",
+      "name": "Accent armchair",
+      "category": "armchair",
+      "dimensions": { "w": 0.762, "d": 0.787, "h": 0.838 },
+      "placement": "floor",
+      "variants": [
+        { "id": "charcoal", "name": "Charcoal", "swatch": "#5b5051" },
+        {
+          "id": "berry",
+          "name": "Berry",
+          "swatch": "#89031f",
+          "model": "models/armchair-accent--berry.glb",
+          "thumb": "thumbs/armchair-accent--berry.webp"
+        },
+        {
+          "id": "cream",
+          "name": "Cream",
+          "swatch": "#e0dad0",
+          "model": "models/armchair-accent--cream.glb",
+          "thumb": "thumbs/armchair-accent--cream.webp"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/5/B082QC5N35.glb",
+      "model": "models/armchair-accent.glb",
+      "thumb": "thumbs/armchair-accent.webp"
+    },
+    {
+      "id": "bed-king-upholstered",
+      "name": "Upholstered king bed",
+      "category": "bed",
+      "dimensions": { "w": 2.14, "d": 2.28, "h": 1.47 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/8/B075QBL1V8.glb",
+      "model": "models/bed-king-upholstered.glb",
+      "thumb": "thumbs/bed-king-upholstered.webp"
+    },
+    {
+      "id": "nightstand-2-drawer",
+      "name": "2-drawer nightstand",
+      "category": "nightstand",
+      "dimensions": { "w": 0.591, "d": 0.406, "h": 0.711 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/1/B07Q2MHLH1.glb",
+      "model": "models/nightstand-2-drawer.glb",
+      "thumb": "thumbs/nightstand-2-drawer.webp"
+    },
+    {
+      "id": "dresser-6-drawer",
+      "name": "6-drawer dresser",
+      "category": "dresser",
+      "dimensions": { "w": 1.549, "d": 0.45, "h": 0.8 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/7/B07HSNQW37.glb",
+      "model": "models/dresser-6-drawer.glb",
+      "thumb": "thumbs/dresser-6-drawer.webp"
+    },
+    {
+      "id": "wardrobe-sliding",
+      "name": "Sliding-door wardrobe",
+      "category": "wardrobe",
+      "dimensions": { "w": 1.8, "d": 0.61, "h": 1.97 },
+      "placement": "floor",
+      "variants": [
+        { "id": "white", "name": "White", "swatch": "#c7c7c7" },
+        {
+          "id": "oak",
+          "name": "Oak",
+          "swatch": "#a6a092",
+          "model": "models/wardrobe-sliding--oak.glb",
+          "thumb": "thumbs/wardrobe-sliding--oak.webp"
+        },
+        {
+          "id": "dark-grey",
+          "name": "Dark grey",
+          "swatch": "#4f4e51",
+          "model": "models/wardrobe-sliding--dark-grey.glb",
+          "thumb": "thumbs/wardrobe-sliding--dark-grey.webp"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/T/B07GFSJ69T.glb",
+      "model": "models/wardrobe-sliding.glb",
+      "thumb": "thumbs/wardrobe-sliding.webp"
+    },
+    {
+      "id": "tv-stand-oak",
+      "name": "Oak and white TV stand",
+      "category": "tv-stand",
+      "dimensions": { "w": 1.5, "d": 0.42, "h": 0.57 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/R/B07H8P3K2R.glb",
+      "model": "models/tv-stand-oak.glb",
+      "thumb": "thumbs/tv-stand-oak.webp"
+    },
+    {
+      "id": "dining-table-trestle",
+      "name": "Trestle dining table",
+      "category": "dining-table",
+      "dimensions": { "w": 1.981, "d": 1.016, "h": 0.762 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/R/B075YMW6VR.glb",
+      "model": "models/dining-table-trestle.glb",
+      "thumb": "thumbs/dining-table-trestle.webp"
+    },
+    {
+      "id": "coffee-table-round",
+      "name": "Round marble coffee table",
+      "category": "coffee-table",
+      "dimensions": { "w": 1.301, "d": 1.301, "h": 0.491 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC0-1.0",
+      "credit": "Ulan Cabanilla, Poly Haven",
+      "sourceUrl": "https://polyhaven.com/a/coffee_table_round_01",
+      "model": "models/coffee-table-round.glb",
+      "thumb": "thumbs/coffee-table-round.webp"
+    },
+    {
+      "id": "dining-chair-curved",
+      "name": "Curved-back dining chair",
+      "category": "dining-chair",
+      "dimensions": { "w": 0.49, "d": 0.59, "h": 0.84 },
+      "placement": "floor",
+      "variants": [
+        { "id": "lemongrass", "name": "Lemongrass", "swatch": "#9c8053" },
+        {
+          "id": "graphite",
+          "name": "Graphite",
+          "swatch": "#575054",
+          "model": "models/dining-chair-curved--graphite.glb",
+          "thumb": "thumbs/dining-chair-curved--graphite.webp"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/M/B0853KTR7M.glb",
+      "model": "models/dining-chair-curved.glb",
+      "thumb": "thumbs/dining-chair-curved.webp"
+    },
+    {
+      "id": "office-chair-swivel",
+      "name": "Swivel office chair",
+      "category": "office-chair",
+      "dimensions": { "w": 0.63, "d": 0.66, "h": 0.861 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/G/B075Z8769G.glb",
+      "model": "models/office-chair-swivel.glb",
+      "thumb": "thumbs/office-chair-swivel.webp"
+    },
+    {
+      "id": "rug-diamond",
+      "name": "Diamond-pattern rug",
+      "category": "rug",
+      "dimensions": { "w": 2.438, "d": 1.524, "h": 0.015 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/B/B07QHKYCVB.glb",
+      "model": "models/rug-diamond.glb",
+      "thumb": "thumbs/rug-diamond.webp"
+    },
+    {
+      "id": "plant-potted",
+      "name": "Potted plant",
+      "category": "plant",
+      "dimensions": { "w": 0.701, "d": 0.657, "h": 0.841 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC0-1.0",
+      "credit": "Rico Cilliers, Poly Haven",
+      "sourceUrl": "https://polyhaven.com/a/potted_plant_02",
+      "model": "models/plant-potted.glb",
+      "thumb": "thumbs/plant-potted.webp"
+    },
+    {
+      "id": "sofa-track-arm",
+      "name": "Track-arm sofa",
+      "category": "sofa",
+      "dimensions": { "w": 2.413, "d": 0.965, "h": 0.838 },
+      "placement": "floor",
+      "variants": [
+        { "id": "haze", "name": "Haze", "swatch": "#9b9181" },
+        {
+          "id": "flannel",
+          "name": "Flannel",
+          "swatch": "#73634e",
+          "model": "models/sofa-track-arm--flannel.glb",
+          "thumb": "thumbs/sofa-track-arm--flannel.webp"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/Y/B07HYY8ZGY.glb",
+      "model": "models/sofa-track-arm.glb",
+      "thumb": "thumbs/sofa-track-arm.webp"
+    },
+    {
+      "id": "sectional-l-shape",
+      "name": "L-shaped corner sofa",
+      "category": "sectional",
+      "dimensions": { "w": 2.66, "d": 1.61, "h": 0.73 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/B/B07K8Z4VGB.glb",
+      "model": "models/sectional-l-shape.glb",
+      "thumb": "thumbs/sectional-l-shape.webp"
+    },
+    {
+      "id": "armchair-track-arm",
+      "name": "Track-arm armchair",
+      "category": "armchair",
+      "dimensions": { "w": 0.78, "d": 0.899, "h": 0.919 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/W/B07BWJCZJW.glb",
+      "model": "models/armchair-track-arm.glb",
+      "thumb": "thumbs/armchair-track-arm.webp"
+    },
+    {
+      "id": "armchair-slipper",
+      "name": "Velvet slipper chair",
+      "category": "armchair",
+      "dimensions": { "w": 0.827, "d": 0.57, "h": 0.686 },
+      "placement": "floor",
+      "variants": [
+        { "id": "mango", "name": "Mango", "swatch": "#e55022" },
+        {
+          "id": "peacock",
+          "name": "Peacock",
+          "swatch": "#09686a",
+          "model": "models/armchair-slipper--peacock.glb",
+          "thumb": "thumbs/armchair-slipper--peacock.webp"
+        }
+      ],
+      "license": "CC0-1.0",
+      "credit": "Wayfair, LLC (Eric Chadwick)",
+      "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/8f492390ddc7a2ae221a1369ef560589cf8c70fb/Models/SheenChair",
+      "model": "models/armchair-slipper.glb",
+      "thumb": "thumbs/armchair-slipper.webp"
+    },
+    {
+      "id": "bed-queen-platform",
+      "name": "Queen platform bed",
+      "category": "bed",
+      "dimensions": { "w": 1.651, "d": 2.311, "h": 1.168 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/K/B075X2CVQK.glb",
+      "model": "models/bed-queen-platform.glb",
+      "thumb": "thumbs/bed-queen-platform.webp"
+    },
+    {
+      "id": "bed-queen-nailhead",
+      "name": "Nailhead queen bed",
+      "category": "bed",
+      "dimensions": { "w": 1.676, "d": 2.337, "h": 1.422 },
+      "placement": "floor",
+      "variants": [
+        { "id": "pearl", "name": "Pearl", "swatch": "#c6c2c0" },
+        {
+          "id": "lagoon",
+          "name": "Lagoon",
+          "swatch": "#9a9a9f",
+          "model": "models/bed-queen-nailhead--lagoon.glb",
+          "thumb": "thumbs/bed-queen-nailhead--lagoon.webp"
+        },
+        {
+          "id": "indigo",
+          "name": "Indigo",
+          "swatch": "#8e8e95",
+          "model": "models/bed-queen-nailhead--indigo.glb",
+          "thumb": "thumbs/bed-queen-nailhead--indigo.webp"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/C/B07B4W5V3C.glb",
+      "model": "models/bed-queen-nailhead.glb",
+      "thumb": "thumbs/bed-queen-nailhead.webp"
+    },
+    {
+      "id": "nightstand-walnut",
+      "name": "Walnut nightstand",
+      "category": "nightstand",
+      "dimensions": { "w": 0.6, "d": 0.42, "h": 0.5 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/7/B07VB7Q6W7.glb",
+      "model": "models/nightstand-walnut.glb",
+      "thumb": "thumbs/nightstand-walnut.webp"
+    },
+    {
+      "id": "dresser-commode",
+      "name": "Carved commode",
+      "category": "dresser",
+      "dimensions": { "w": 1.201, "d": 0.581, "h": 1.212 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC0-1.0",
+      "credit": "Kirill Sannikov, Poly Haven",
+      "sourceUrl": "https://polyhaven.com/a/GothicCommode_01",
+      "model": "models/dresser-commode.glb",
+      "thumb": "thumbs/dresser-commode.webp"
+    },
+    {
+      "id": "wardrobe-2-door",
+      "name": "2-door wardrobe",
+      "category": "wardrobe",
+      "dimensions": { "w": 1, "d": 0.6, "h": 1.96 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/H/B07H8V7P3H.glb",
+      "model": "models/wardrobe-2-door.glb",
+      "thumb": "thumbs/wardrobe-2-door.webp"
+    },
+    {
+      "id": "cabinet-slatted",
+      "name": "Slatted cabinet",
+      "category": "cabinet",
+      "dimensions": { "w": 0.8, "d": 0.4, "h": 0.805 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/V/B074KLJQKV.glb",
+      "model": "models/cabinet-slatted.glb",
+      "thumb": "thumbs/cabinet-slatted.webp"
+    },
+    {
+      "id": "cabinet-painted",
+      "name": "Painted cabinet",
+      "category": "cabinet",
+      "dimensions": { "w": 1.195, "d": 0.617, "h": 1.182 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC0-1.0",
+      "credit": "Kirill Sannikov, Poly Haven",
+      "sourceUrl": "https://polyhaven.com/a/painted_wooden_cabinet",
+      "model": "models/cabinet-painted.glb",
+      "thumb": "thumbs/cabinet-painted.webp"
+    },
+    {
+      "id": "sideboard-3-drawer",
+      "name": "3-drawer sideboard",
+      "category": "sideboard",
+      "dimensions": { "w": 1.6, "d": 0.45, "h": 0.8 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/2/B07HSLVMP2.glb",
+      "model": "models/sideboard-3-drawer.glb",
+      "thumb": "thumbs/sideboard-3-drawer.webp"
+    },
+    {
+      "id": "sideboard-low",
+      "name": "Low sideboard",
+      "category": "sideboard",
+      "dimensions": { "w": 2.44, "d": 0.52, "h": 0.68 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC0-1.0",
+      "credit": "Patrik Pangerl, Poly Haven",
+      "sourceUrl": "https://polyhaven.com/a/modern_wooden_cabinet",
+      "model": "models/sideboard-low.glb",
+      "thumb": "thumbs/sideboard-low.webp"
+    },
+    {
+      "id": "bookcase-oak",
+      "name": "Oak bookcase",
+      "category": "bookcase",
+      "dimensions": { "w": 0.95, "d": 0.42, "h": 2.02 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/V/B07JGY5LNV.glb",
+      "model": "models/bookcase-oak.glb",
+      "thumb": "thumbs/bookcase-oak.webp"
+    },
+    {
+      "id": "bookcase-wooden",
+      "name": "Wooden bookshelf",
+      "category": "bookcase",
+      "dimensions": { "w": 1.374, "d": 0.581, "h": 2.063 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC0-1.0",
+      "credit": "Ulan Cabanilla, Poly Haven",
+      "sourceUrl": "https://polyhaven.com/a/wooden_bookshelf_worn",
+      "model": "models/bookcase-wooden.glb",
+      "thumb": "thumbs/bookcase-wooden.webp"
+    },
+    {
+      "id": "tv-stand-midcentury",
+      "name": "Mid-century media console",
+      "category": "tv-stand",
+      "dimensions": { "w": 1.194, "d": 0.406, "h": 0.813 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/Z/B07QF9ZFQZ.glb",
+      "model": "models/tv-stand-midcentury.glb",
+      "thumb": "thumbs/tv-stand-midcentury.webp"
+    },
+    {
+      "id": "dining-table-oak",
+      "name": "Oak dining table",
+      "category": "dining-table",
+      "dimensions": { "w": 1.3, "d": 0.9, "h": 0.75 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/M/B07SJ75Y1M.glb",
+      "model": "models/dining-table-oak.glb",
+      "thumb": "thumbs/dining-table-oak.webp"
+    },
+    {
+      "id": "coffee-table-modern",
+      "name": "Modern coffee table",
+      "category": "coffee-table",
+      "dimensions": { "w": 1.202, "d": 0.6, "h": 0.39 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC0-1.0",
+      "credit": "Amin, Poly Haven",
+      "sourceUrl": "https://polyhaven.com/a/modern_coffee_table_01",
+      "model": "models/coffee-table-modern.glb",
+      "thumb": "thumbs/coffee-table-modern.webp"
+    },
+    {
+      "id": "desk-midcentury",
+      "name": "Mid-century desk",
+      "category": "desk",
+      "dimensions": { "w": 1.067, "d": 0.66, "h": 0.754 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/C/B07QGFS4JC.glb",
+      "model": "models/desk-midcentury.glb",
+      "thumb": "thumbs/desk-midcentury.webp"
+    },
+    {
+      "id": "desk-metal",
+      "name": "Metal office desk",
+      "category": "desk",
+      "dimensions": { "w": 2, "d": 0.947, "h": 0.788 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC0-1.0",
+      "credit": "Ulan Cabanilla, Poly Haven",
+      "sourceUrl": "https://polyhaven.com/a/metal_office_desk",
+      "model": "models/desk-metal.glb",
+      "thumb": "thumbs/desk-metal.webp"
+    },
+    {
+      "id": "dining-chair-painted",
+      "name": "Painted wooden chair",
+      "category": "dining-chair",
+      "dimensions": { "w": 0.432, "d": 0.54, "h": 0.956 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC0-1.0",
+      "credit": "Kuutti Siitonen, Poly Haven",
+      "sourceUrl": "https://polyhaven.com/a/painted_wooden_chair_01",
+      "model": "models/dining-chair-painted.glb",
+      "thumb": "thumbs/dining-chair-painted.webp"
+    },
+    {
+      "id": "office-chair-task",
+      "name": "Task office chair",
+      "category": "office-chair",
+      "dimensions": { "w": 0.655, "d": 0.6, "h": 0.82 },
+      "placement": "floor",
+      "variants": [
+        { "id": "charcoal", "name": "Charcoal", "swatch": "#5e5b5f" },
+        {
+          "id": "brick-red",
+          "name": "Brick red",
+          "swatch": "#d05750",
+          "model": "models/office-chair-task--brick-red.glb",
+          "thumb": "thumbs/office-chair-task--brick-red.webp"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/R/B07MDJYKXR.glb",
+      "model": "models/office-chair-task.glb",
+      "thumb": "thumbs/office-chair-task.webp"
+    },
+    {
+      "id": "rug-round",
+      "name": "Round medallion rug",
+      "category": "rug",
+      "dimensions": { "w": 1.6, "d": 1.6, "h": 0.013 },
+      "placement": "floor",
+      "variants": [
+        { "id": "blue", "name": "Blue", "swatch": "#7b8d92" },
+        {
+          "id": "warm-grey",
+          "name": "Warm grey",
+          "swatch": "#989188",
+          "model": "models/rug-round--warm-grey.glb",
+          "thumb": "thumbs/rug-round--warm-grey.webp"
+        }
+      ],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/M/B07QGG5LLM.glb",
+      "model": "models/rug-round.glb",
+      "thumb": "thumbs/rug-round.webp"
+    },
+    {
+      "id": "floor-lamp-arc",
+      "name": "Arc floor lamp",
+      "category": "floor-lamp",
+      "dimensions": { "w": 0.381, "d": 1.422, "h": 2.108 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "Amazon.com",
+      "sourceUrl": "https://amazon-berkeley-objects.s3.amazonaws.com/3dmodels/original/5/B0742FPL25.glb",
+      "model": "models/floor-lamp-arc.glb",
+      "thumb": "thumbs/floor-lamp-arc.webp"
+    },
+    {
+      "id": "floor-lamp-paper",
+      "name": "Paper-shade floor lamp",
+      "category": "floor-lamp",
+      "dimensions": { "w": 1.127, "d": 0.722, "h": 1.864 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC-BY-4.0",
+      "credit": "DGG",
+      "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/8f492390ddc7a2ae221a1369ef560589cf8c70fb/Models/LightsPunctualLamp",
+      "model": "models/floor-lamp-paper.glb",
+      "thumb": "thumbs/floor-lamp-paper.webp"
+    },
+    {
+      "id": "plant-tall",
+      "name": "Tall potted plant",
+      "category": "plant",
+      "dimensions": { "w": 0.589, "d": 0.637, "h": 1.351 },
+      "placement": "floor",
+      "variants": [],
+      "license": "CC0-1.0",
+      "credit": "Rico Cilliers, Poly Haven",
+      "sourceUrl": "https://polyhaven.com/a/potted_plant_01",
+      "model": "models/plant-tall.glb",
+      "thumb": "thumbs/plant-tall.webp"
+    },
+    {
+      "id": "plant-succulent",
+      "name": "Small succulent",
+      "category": "plant",
+      "dimensions": { "w": 0.17, "d": 0.186, "h": 0.268 },
+      "placement": "tabletop",
+      "variants": [],
+      "license": "CC0-1.0",
+      "credit": "James Ray Cock, Poly Haven",
+      "sourceUrl": "https://polyhaven.com/a/potted_plant_04",
+      "model": "models/plant-succulent.glb",
+      "thumb": "thumbs/plant-succulent.webp"
+    }
+  ]
+}

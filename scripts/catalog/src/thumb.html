@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Catalog thumbnail renderer</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #f1f1ef;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/three/build/three.module.js",
+          "three/addons/": "/three/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from 'three';
+      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+      import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+      const BACKGROUND = 0xf1f1ef;
+      const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(1);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.NeutralToneMapping;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.VSMShadowMap;
+      document.body.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(BACKGROUND);
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+      scene.environmentIntensity = 0.8;
+
+      // Soft key light from the front left, casting a blurred shadow on a shadow-only floor.
+      const key = new THREE.DirectionalLight(0xffffff, 1.1);
+      key.castShadow = true;
+      key.shadow.mapSize.set(2048, 2048);
+      key.shadow.radius = 10;
+      key.shadow.blurSamples = 20;
+      key.shadow.bias = -0.0005;
+      scene.add(key, key.target);
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(1, 1),
+        new THREE.ShadowMaterial({ opacity: 0.2 }),
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      const camera = new THREE.PerspectiveCamera(26, 1, 0.01, 200);
+      const loader = new GLTFLoader();
+
+      /** Views: azimuth from +Z toward +X and elevation, in degrees. */
+      const VIEWS = {
+        thumb: [35, 20],
+        // Rugs: higher, so the pattern shows.
+        'thumb-flat': [35, 55],
+        front: [0, 8],
+        side: [90, 8],
+        back: [180, 8],
+        top: [0, 89.9],
+      };
+
+      function frame(box, view, margin) {
+        const [azDeg, elDeg] = VIEWS[view];
+        const az = THREE.MathUtils.degToRad(azDeg);
+        const el = THREE.MathUtils.degToRad(elDeg);
+        const dir = new THREE.Vector3(
+          Math.sin(az) * Math.cos(el),
+          Math.sin(el),
+          Math.cos(az) * Math.cos(el),
+        );
+        const corners = [];
+        for (const x of [box.min.x, box.max.x])
+          for (const y of [box.min.y, box.max.y])
+            for (const z of [box.min.z, box.max.z]) corners.push(new THREE.Vector3(x, y, z));
+        const target = box.getCenter(new THREE.Vector3());
+        let dist = box.getSize(new THREE.Vector3()).length() * 2;
+        const halfTan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+        const right = new THREE.Vector3();
+        const up = new THREE.Vector3();
+        for (let i = 0; i < 40; i++) {
+          camera.position.copy(target).addScaledVector(dir, dist);
+          camera.up.set(0, 1, 0);
+          if (elDeg > 89) camera.up.set(0, 0, -1);
+          camera.lookAt(target);
+          camera.updateMatrixWorld();
+          let minX = Infinity,
+            maxX = -Infinity,
+            minY = Infinity,
+            maxY = -Infinity;
+          for (const c of corners) {
+            const p = c.clone().project(camera);
+            minX = Math.min(minX, p.x);
+            maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y);
+            maxY = Math.max(maxY, p.y);
+          }
+          right.setFromMatrixColumn(camera.matrixWorld, 0);
+          up.setFromMatrixColumn(camera.matrixWorld, 1);
+          const half = dist * halfTan;
+          target
+            .addScaledVector(right, ((minX + maxX) / 2) * half)
+            .addScaledVector(up, ((minY + maxY) / 2) * half);
+          dist *= Math.max(maxX - minX, maxY - minY) / 2 / margin;
+        }
+        camera.near = dist / 100;
+        camera.far = dist * 10;
+        camera.updateProjectionMatrix();
+      }
+
+      window.renderModel = async (url, view, size) => {
+        renderer.setSize(size, size);
+        const gltf = await loader.loadAsync(url);
+        const model = gltf.scene;
+        model.traverse((o) => {
+          if (o.isMesh) o.castShadow = true;
+        });
+        scene.add(model);
+        const box = new THREE.Box3().setFromObject(model);
+        const dims = box.getSize(new THREE.Vector3());
+        const reach = Math.max(dims.x, dims.y, dims.z);
+        const center = box.getCenter(new THREE.Vector3());
+        key.target.position.set(center.x, 0, center.z);
+        key.position.set(center.x - reach * 0.8, reach * 2.2, center.z + reach * 1.4);
+        const cam = key.shadow.camera;
+        cam.left = cam.bottom = -reach * 1.5;
+        cam.right = cam.top = reach * 1.5;
+        cam.near = 0.01;
+        cam.far = reach * 6;
+        cam.updateProjectionMatrix();
+        floor.scale.set(reach * 8, reach * 8, 1);
+        floor.position.set(center.x, 0, center.z);
+        floor.visible = view !== 'top';
+        frame(box, view, view.startsWith('thumb') ? 0.86 : 0.92);
+        renderer.render(scene, camera);
+        const png = renderer.domElement.toDataURL('image/png');
+        scene.remove(model);
+        model.traverse((o) => {
+          if (!o.isMesh) return;
+          o.geometry.dispose();
+          for (const m of [o.material].flat()) {
+            for (const v of Object.values(m)) if (v && v.isTexture) v.dispose();
+            m.dispose();
+          }
+        });
+        return {
+          png,
+          size: [dims.x, dims.y, dims.z],
+          triangles: renderer.info.render.triangles,
+        };
+      };
+      window.rendererReady = true;
+    </script>
+  </body>
+</html>
