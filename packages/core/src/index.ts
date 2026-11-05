@@ -95,6 +95,139 @@ export {
   parseLength,
 } from './units';
 
+export { triangulatePolygon } from './triangulate';
+
+export {
+  emptyMesh,
+  isEmptyMesh,
+  meshVertexCount,
+  meshTriangleCount,
+  meshArea,
+  meshBounds,
+  mergeMeshes,
+  toViroGeometry,
+  toViroGeometryParts,
+} from './mesh';
+export type {
+  MeshData,
+  MeshVec3,
+  ViroGeometryData,
+  ViroGeometryOptions,
+  ViroGeometryPart,
+} from './mesh';
+
+export {
+  buildRoomMeshes,
+  wallFacesCamera,
+  DEFAULT_WALL_THICKNESS,
+  DEFAULT_FRAME_WIDTH,
+  DEFAULT_FRAME_DEPTH,
+} from './room-mesh';
+export type { RoomMeshes, RoomMeshOptions, WallMesh } from './room-mesh';
+
+export {
+  WALL_SNAP_DISTANCE,
+  ROTATION_STEP,
+  PLACEMENT_TOLERANCE,
+  productLookup,
+  normalizeDegrees,
+  snapRotation,
+  facingRotation,
+  frontDirection,
+  itemFootprint,
+  pointInRoom,
+  footprintInRoom,
+  footprintsOverlap,
+  snapToWall,
+  clampInsideRoom,
+  roomRotationBase,
+  roomCenter,
+  findFreeSpot,
+  isFlatProduct,
+  resolvePlacement,
+  placeNewItem,
+} from './placement';
+export type {
+  PlacementProduct,
+  ProductLookup,
+  Pose,
+  Footprint,
+  WallSnap,
+  FreeSpotOptions,
+  PlacementCandidate,
+  PlacementContext,
+  ResolveOptions,
+  PlacementIssue,
+  ResolvedPlacement,
+} from './placement';
+
+export {
+  MIN_OPENING_SIZE,
+  MIN_CEILING_HEIGHT,
+  MAX_CEILING_HEIGHT,
+  DEFAULT_OPENINGS,
+  describeRoomEditError,
+  wallIndexOf,
+  wallLength,
+  openingSegment,
+  projectOntoWall,
+  findOpening,
+  validateOpening,
+  fitOpenings,
+  moveCorner,
+  setWallLength,
+  setCeilingHeight,
+  newOpeningId,
+  addOpening,
+  updateOpening,
+  moveOpening,
+  removeOpening,
+} from './editor';
+export type {
+  RoomEditError,
+  RoomEditResult,
+  OpeningChange,
+  OpeningSpec,
+  SetWallLengthOptions,
+} from './editor';
+
+export {
+  lineUpFromCorners,
+  lineUpFromPairs,
+  lineUpCorners,
+  applyLineUp,
+  applyLineUpInverse,
+  invertLineUp,
+  lineUpPose,
+  lineUpPoseInverse,
+} from './lineup';
+export type { LineUp, LineUpResult, LineUpQuality, LineUpIssue, FloorTap } from './lineup';
+
+export { designFromFirestore, designToFirestore } from './design';
+
+export {
+  SHARE_ID_LENGTH,
+  SHARE_ID_MIN_LENGTH,
+  SHARE_BASE_URL,
+  generateShareId,
+  isShareId,
+  shareUrl,
+  buildShareDoc,
+} from './share';
+export type { RandomBytes } from './share';
+
+export { picturePath, buildPictureDoc, pictureFromFirestore } from './picture';
+
+export { parseCatalog } from './catalog-parse';
+
+export {
+  CATALOG_BASE_URL,
+  catalogUrl,
+  catalogVariant,
+  catalogModelUrl,
+  catalogThumbUrl,
+} from './catalog-url';
+
 export { CATALOG_CATEGORIES } from './catalog';
 export type {
   Catalog,

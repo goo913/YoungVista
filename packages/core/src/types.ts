@@ -89,6 +89,11 @@ export interface DesignItem {
   x: number;
   z: number;
   rotationY: number;
+  /**
+   * Height of the item's base above the floor in metres. Only set for tabletop items resting on
+   * another item (see `resolvePlacement`); floor items leave it out, which means 0.
+   */
+  y?: number;
 }
 
 export interface Design {
@@ -140,7 +145,24 @@ export interface ShareDoc<TTime = TimestampLike> {
   roomId: string;
   name: string;
   createdAt: TTime;
+  /** When the owner last refreshed the snapshot. Missing on snapshots never refreshed. */
+  updatedAt?: TTime;
   units: UnitSystem;
   room: StoredRoom;
   design: Design;
+}
+
+/**
+ * Firestore document `rooms/{roomId}/pictures/{pictureId}`: a final picture of the room. The
+ * image itself is a JPEG in Storage at `storagePath`. Build it with `buildPictureDoc`.
+ */
+export interface PictureDoc<TTime = TimestampLike> {
+  createdAt: TTime;
+  /** `users/{uid}/rooms/{roomId}/pictures/{pictureId}.jpg` (see `picturePath`). */
+  storagePath: string;
+  /** Image size in pixels. */
+  width: number;
+  height: number;
+  /** Where the picture was taken. */
+  platform: CapturePlatform;
 }
