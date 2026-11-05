@@ -9,6 +9,8 @@ A phone app (iPhone and Android) that scans a room, shows it in 3D and in the li
 ## Strict rules
 
 - **GitHub account:** only the work account `goo913`, never the personal one (`goochoi913`), in this repo and folder. The repo's own git config sets `user.name` to `goo913` and `user.email` to `goo.choi@takeoffprime.com`, and pushes use goo913's token through the repo's credential helper. Run `gh` commands as goo913.
+- **Firebase and Google Cloud:** run `firebase` and `gcloud` commands as the owner's Google account that owns the `young-vista` project. That is a Google account; it has nothing to do with the GitHub rule above.
+- **Publishing is the owner's job:** Claude Code never uploads a build or submits anything to Apple or Google. It prepares the commands and the step-by-step guides in `docs/publishing/`, and the owner runs them.
 - **No PR needed until the owner says so.** Push to `main` directly and automatically.
 - **AI naming (permanent rule):** the app never names the AI model or provider in labels, settings, messages, or errors; it is always "AI."
 - **UI:** shadcn/ui components, icons from react-icons. On mobile, use react-native-reusables (the shadcn/ui port for React Native); icons still come from react-icons.

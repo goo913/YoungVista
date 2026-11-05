@@ -1,6 +1,6 @@
 # YoungVista build plan
 
-Four builds, done in order. Each one ends with something the team can try on a phone. Target: a team-only demo in about a month, on normal iPhones and Android phones (no iPhone Pro needed).
+Four builds, done in order. Each one ends with something the team can try on a phone. Target: a team-only demo in about a month, on normal iPhones and Android phones (no iPhone Pro needed). The test phone is the owner's iPhone 15.
 
 | Build | What you get |
 |---|---|
@@ -26,11 +26,12 @@ The result is a clean model of the room (floor, walls, doors, windows), not a ph
 ### Stack
 
 - **Monorepo:** npm workspaces. TypeScript strict everywhere.
-- **apps/mobile:** Expo SDK 57 (React Native 0.86, the newest SDK that `@reactvision/react-viro` 3.x supports), Expo Router, development builds (Expo Go cannot load AR). `@reactvision/react-viro` for AR (ARKit and ARCore) and the in-app 3D view. UI: react-native-reusables (shadcn/ui for React Native) with NativeWind. Icons: react-icons, rendered natively through react-native-svg. Firebase JS SDK (Auth with AsyncStorage persistence, Firestore, Storage). Google sign-in: `@react-native-google-signin/google-signin`. Bundle ID and package name: `com.takeoffprime.youngvista`.
+- **apps/mobile:** Expo SDK 57 (React Native 0.86, the newest SDK that `@reactvision/react-viro` 3.x supports), Expo Router, development builds (Expo Go cannot load AR). `@reactvision/react-viro` for AR (ARKit and ARCore) and the in-app 3D view. UI: react-native-reusables (shadcn/ui for React Native) with NativeWind. Icons: react-icons, rendered natively through react-native-svg. Firebase JS SDK (Auth with AsyncStorage persistence, Firestore, Storage). Google sign-in: `@react-native-google-signin/google-signin`. Bundle ID and package name: `com.youngcorporation.youngvista`; iPhone builds are signed by the company's Apple team, Young Corporation of America.
 - **apps/web:** Vite, React, TypeScript, React Router, Tailwind and shadcn/ui, react-icons, three.js through React Three Fiber and drei, Firebase JS SDK. Hosted on Firebase Hosting at https://young-vista.web.app.
 - **packages/core:** shared TypeScript with no platform code: room model, scan geometry, placement math, units, catalog types. Vitest tests.
 - **Firebase (`young-vista`):** Auth (email/password and Google), Firestore (`nam5`), Storage (`us-central1`), Hosting. Rules and indexes live in the repo.
 - **CI/CD:** GitHub Actions on every push to `main`: install, type-check, test, build the website, deploy Hosting and the Firestore and Storage rules. Google Cloud auth is keyless (Workload Identity Federation): repository variables `GCP_WIF_PROVIDER` and `GCP_DEPLOY_SA`; web Firebase settings come from the `VITE_FIREBASE_*` repository secrets.
+- **Getting the app onto phones:** the owner does it, following `docs/publishing/`: the owner's iPhone over the cable, then TestFlight for the team. Claude Code prepares the commands and the steps, and never uploads a build or submits anything.
 - **Config and secrets:** each app reads Firebase settings from env (`EXPO_PUBLIC_FIREBASE_*`, `VITE_FIREBASE_*`) and commits only `.env.example`. Native Firebase files (`google-services.json`, `GoogleService-Info.plist`) stay out of git; the Expo config reads their paths from env, falling back to the gitignored `.secrets/` folder.
 
 ### Conventions
