@@ -1,5 +1,7 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 import { withGradleProperties, type ConfigPlugin } from 'expo/config-plugins';
+// The version people see and the build number the stores count; npm run publish:iphone raises it.
+import release from './release.json';
 
 /** iOS bundle ID and Android package (decisions.md). */
 const APP_ID = 'com.youngcorporation.youngvista';
@@ -42,13 +44,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: 'YoungVista',
     slug: 'youngvista',
     scheme: 'youngvista',
-    version: '0.1.0',
+    version: release.version,
     orientation: 'portrait',
     userInterfaceStyle: 'automatic',
     // The website's mark (apps/web/public/favicon.svg). Final icon and splash come in Build 4.
     icon: './assets/icon.png',
     ios: {
       bundleIdentifier: APP_ID,
+      buildNumber: String(release.build),
       appleTeamId: process.env.APPLE_TEAM_ID || DEFAULT_APPLE_TEAM_ID,
       supportsTablet: false,
       infoPlist: {
@@ -58,6 +61,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: APP_ID,
+      versionCode: release.build,
     },
     plugins: [
       'expo-router',
@@ -89,6 +93,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...(iosUrlScheme
         ? [['@react-native-google-signin/google-signin', { iosUrlScheme }] as [string, unknown]]
         : []),
+      // iOS 27 stops an app at launch unless it uses the scene life cycle (see the plugin).
+      './plugins/with-scene-lifecycle',
     ],
   });
 };

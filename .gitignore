@@ -26,6 +26,8 @@ GoogleService-Info.plist
 *.jks
 *.keystore
 *.mobileprovision
+# The App Store Connect key and the app's Apple ID (docs/publishing/apple/testflight.md)
+apps/mobile/.publish/
 
 # Firebase
 .firebase/
