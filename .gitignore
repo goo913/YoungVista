@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.expo/
+web-build/
+
+# Expo generates these with prebuild (continuous native generation)
+apps/mobile/ios/
+apps/mobile/android/
+
+# Secrets: never commit (see CLAUDE.md)
+.env
+.env.*
+!.env.example
+.secrets/
+google-services.json
+GoogleService-Info.plist
+*service-account*.json
+*.p8
+*.p12
+*.jks
+*.keystore
+*.mobileprovision
+
+# Firebase
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# Catalog pipeline downloads
+scripts/catalog/.cache/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
