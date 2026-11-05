@@ -1,0 +1,17 @@
+# Secrets and local env files are never formatted or read
+.secrets/
+**/.env*
+
+# Generated or vendored
+**/dist/
+**/coverage/
+**/.expo/
+apps/mobile/ios/
+apps/mobile/android/
+package-lock.json
+.firebase/
+
+# Docs are written by hand
+*.md
+research_notes/
+reports/
