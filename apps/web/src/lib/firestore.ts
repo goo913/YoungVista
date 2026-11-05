@@ -1,5 +1,6 @@
-import { getFirestore } from 'firebase/firestore';
-import { firebaseApp } from './firebase';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import { emulatorHost, firebaseApp } from './firebase';
 
-/** Firestore lives in its own chunk: only the signed-in pages load it. */
+/** Firestore lives in its own chunk: only the pages that read rooms or shares load it. */
 export const db = getFirestore(firebaseApp());
+if (emulatorHost) connectFirestoreEmulator(db, emulatorHost, 8080);

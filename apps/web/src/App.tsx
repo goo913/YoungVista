@@ -12,9 +12,12 @@ import { ResetPasswordPage } from '@/pages/reset-password-page';
 import { SignInPage } from '@/pages/sign-in-page';
 import { SignUpPage } from '@/pages/sign-up-page';
 
-// Signed-in pages load Firestore, so they are split into their own chunk.
+// Pages that read rooms or shares load Firestore, so they are split into their own chunks.
 const RoomsPage = lazy(() => import('@/pages/rooms-page').then((m) => ({ default: m.RoomsPage })));
 const RoomRoute = lazy(() => import('@/pages/room-page').then((m) => ({ default: m.RoomRoute })));
+const ShareRoute = lazy(() =>
+  import('@/pages/share-page').then((m) => ({ default: m.ShareRoute })),
+);
 
 const suspended = (element: ReactNode) => <Suspense fallback={<PageSpinner />}>{element}</Suspense>;
 
@@ -27,6 +30,8 @@ const router = createBrowserRouter([
     ],
   },
   { path: '/reset-password', element: <ResetPasswordPage /> },
+  // A shared room: public, signed in or not.
+  { path: '/s/:shareId', element: suspended(<ShareRoute />) },
   {
     element: <RequireAuth />,
     children: [

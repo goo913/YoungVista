@@ -10,16 +10,30 @@ import {
   where,
   type DocumentData,
 } from 'firebase/firestore';
-import { roomFromFirestore, type Room, type UnitSystem } from '@youngvista/core';
+import {
+  designFromFirestore,
+  roomFromFirestore,
+  roomToFirestore,
+  type Design,
+  type Room,
+  type StoredRoom,
+  type UnitSystem,
+} from '@youngvista/core';
 import { db } from './firestore';
 
 export interface RoomSummary {
   id: string;
+  ownerId: string;
   name: string;
   updatedAt: Date | null;
   units: UnitSystem;
   /** Null when the document has no usable floor plan. */
   room: Room | null;
+  /** The room as stored, for share snapshots (null without a usable floor plan). */
+  stored: StoredRoom | null;
+  design: Design;
+  /** The active share link's id, or null. */
+  shareId: string | null;
 }
 
 export type Loadable<T> =
@@ -31,12 +45,17 @@ export type Loadable<T> =
 function toSummary(id: string, data: DocumentData): RoomSummary {
   const name =
     typeof data.name === 'string' && data.name.trim() ? data.name.trim() : 'Untitled room';
+  const room = roomFromFirestore(data.room);
   return {
     id,
+    ownerId: typeof data.ownerId === 'string' ? data.ownerId : '',
     name,
     updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : null,
     units: data.units === 'metric' ? 'metric' : 'imperial',
-    room: roomFromFirestore(data.room),
+    room,
+    stored: room ? roomToFirestore(room) : null,
+    design: designFromFirestore(data.design),
+    shareId: typeof data.shareId === 'string' && data.shareId ? data.shareId : null,
   };
 }
 

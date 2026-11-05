@@ -1,22 +1,21 @@
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router';
-import { LuArrowLeft, LuInfo, LuMapPinOff, LuTriangleAlert } from 'react-icons/lu';
-import {
-  formatArea,
-  formatLength,
-  roomArea,
-  roomPerimeter,
-  wallLengths,
-  type Room,
-  type UnitSystem,
-} from '@youngvista/core';
-import { FloorPlan } from '@/components/floor-plan';
+import { LuArrowLeft, LuMapPinOff, LuTriangleAlert } from 'react-icons/lu';
+import { formatArea, roomArea, type UnitSystem } from '@youngvista/core';
+import { FurnitureList } from '@/components/furniture-list';
 import { PageSpinner } from '@/components/page-spinner';
+import { PictureGallery } from '@/components/picture-gallery';
+import { RoomFacts } from '@/components/room-facts';
+import { RoomViewer } from '@/components/room-viewer';
+import { ShareCard } from '@/components/share-card';
 import { UnitsToggle } from '@/components/units-toggle';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { useCatalog, type CatalogState } from '@/lib/catalog';
 import { formatDate } from '@/lib/format';
-import { useRoom } from '@/lib/rooms';
+import { furnitureEntries } from '@/lib/furniture';
+import { useRoom, type RoomSummary } from '@/lib/rooms';
 import { useUnits } from '@/lib/use-units';
 
 /** Route element: a fresh page per room id, so one room's data never shows under another's URL. */
@@ -38,6 +37,7 @@ function BackLink() {
 
 function RoomPage({ roomId }: { roomId: string }) {
   const state = useRoom(roomId);
+  const catalog = useCatalog();
   const [units, setUnits] = useUnits();
 
   if (state.status === 'loading') return <PageSpinner label="Loading room" />;
@@ -82,7 +82,7 @@ function RoomPage({ roomId }: { roomId: string }) {
         </div>
       </div>
       {room ? (
-        <RoomDetails name={name} room={room} units={units} />
+        <RoomDetails summary={state.data} units={units} catalog={catalog} />
       ) : (
         <Card className="px-6 py-12 text-center text-muted-foreground">
           This room has no floor plan yet. Finish the scan in the phone app.
@@ -92,65 +92,38 @@ function RoomPage({ roomId }: { roomId: string }) {
   );
 }
 
-function RoomDetails({ name, room, units }: { name: string; room: Room; units: UnitSystem }) {
-  const area = roomArea(room);
-  const lengths = wallLengths(room);
-  const stats = [
-    { label: 'Floor area', value: formatArea(area, units) },
-    { label: 'Perimeter', value: formatLength(roomPerimeter(room), units) },
-    { label: 'Ceiling height', value: formatLength(room.ceilingHeight, units) },
-    { label: 'Walls', value: String(room.walls.length) },
-  ];
+function RoomDetails({
+  summary,
+  units,
+  catalog,
+}: {
+  summary: RoomSummary;
+  units: UnitSystem;
+  catalog: CatalogState;
+}) {
+  const room = summary.room!;
+  const index = catalog.status === 'ready' ? catalog.data : null;
+  const furniture = useMemo(() => furnitureEntries(summary.design, index), [summary.design, index]);
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-      <Card>
-        <CardContent className="flex justify-center">
-          <FloorPlan
-            room={room}
-            units={units}
-            title={`Floor plan of ${name}, ${formatArea(area, units)}`}
-            className="max-h-[70vh]"
-          />
-        </CardContent>
-      </Card>
+      <div className="grid min-w-0 content-start gap-6">
+        <Card>
+          <CardContent>
+            <RoomViewer
+              room={room}
+              furniture={furniture}
+              name={summary.name}
+              units={units}
+              planTitle={`Floor plan of ${summary.name}, ${formatArea(roomArea(room), units)}`}
+            />
+          </CardContent>
+        </Card>
+        <FurnitureList furniture={furniture} units={units} catalog={catalog.status} />
+        <PictureGallery roomId={summary.id} />
+      </div>
       <div className="grid content-start gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Measurements</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-1">
-              {stats.map((s) => (
-                <div key={s.label}>
-                  <dt className="text-xs text-muted-foreground">{s.label}</dt>
-                  <dd className="text-base font-medium tabular-nums">{s.value}</dd>
-                </div>
-              ))}
-            </dl>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Walls</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="grid grid-cols-2 gap-x-4 gap-y-1.5 lg:grid-cols-1">
-              {room.walls.map((w, i) => (
-                <li key={w.id} className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">Wall {i + 1}</span>
-                  <span className="font-medium tabular-nums">
-                    {formatLength(lengths[i] ?? 0, units)}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </CardContent>
-        </Card>
-        <p className="flex gap-2 text-xs text-muted-foreground">
-          <LuInfo className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          Sizes from a phone scan are approximate. Check with a tape measure before buying for a
-          tight space.
-        </p>
+        <ShareCard room={summary} />
+        <RoomFacts room={room} units={units} />
       </div>
     </div>
   );

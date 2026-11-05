@@ -1,5 +1,5 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
+import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth';
 
 const settings = {
   VITE_FIREBASE_API_KEY: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -14,6 +14,12 @@ const settings = {
 export const missingFirebaseSettings: string[] = Object.entries(settings)
   .filter(([, value]) => !value)
   .map(([name]) => name);
+
+/**
+ * Local development and checks only: when set, the website talks to the Firebase emulators on this
+ * host (Auth 9099, Firestore 8080, Storage 9199) instead of the live project.
+ */
+export const emulatorHost = import.meta.env.VITE_FIREBASE_EMULATOR_HOST || null;
 
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
@@ -31,6 +37,10 @@ export function firebaseApp(): FirebaseApp {
 }
 
 export function firebaseAuth(): Auth {
-  auth ??= getAuth(firebaseApp());
+  if (!auth) {
+    auth = getAuth(firebaseApp());
+    if (emulatorHost)
+      connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true });
+  }
   return auth;
 }

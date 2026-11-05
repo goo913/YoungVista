@@ -10,9 +10,9 @@ furniture in it. A website shows the same rooms on a bigger screen.
 
 | Path | What it is |
 |---|---|
-| `apps/web` | Website: Vite, React, React Router, Tailwind, shadcn/ui, react-icons, Firebase. |
+| `apps/web` | Website: Vite, React, React Router, Tailwind, shadcn/ui, react-icons, Firebase, React Three Fiber (3D view). |
 | `apps/mobile` | Phone app (Expo and ViroReact). Being added next. |
-| `packages/core` | Shared TypeScript with no platform code: room model, scan geometry, measurements, units, catalog types. |
+| `packages/core` | Shared TypeScript with no platform code: room model, scan geometry, 3D room meshes, furniture placement, room editing, AR line-up, share and picture documents, units, catalog types. |
 | `firebase.json`, `.firebaserc` | Hosting, Firestore and Storage deploy settings. |
 | `firestore.rules`, `firestore.indexes.json`, `storage.rules` | Security rules and indexes, deployed by CI. |
 | `firebase.emulators.json`, `tests/rules` | Emulator settings and tests for the security rules. |
@@ -30,6 +30,23 @@ npm install
 cp apps/web/.env.example apps/web/.env.local   # then fill in the values (see below)
 npm run dev:web                                 # http://localhost:5173
 ```
+
+The website has the rooms list; a room page with the plan (furniture footprints: hover or tap for
+names), a 3D view, the furniture list with model credits, the room's pictures and its private
+link; and the public shared page at `/s/{shareId}`, which works without signing in. three.js loads
+only when the 3D view opens (its own chunk, see `vite.config.ts`).
+
+To try the website without touching the live project, run it against the Firebase emulators
+(Java 21+). Put any values in the six `VITE_FIREBASE_*` settings in
+`apps/web/.env.emulators.local` (project id `demo-young-vista`), add
+`VITE_FIREBASE_EMULATOR_HOST=127.0.0.1`, then:
+
+```sh
+npx firebase-tools@15.34.1 emulators:start --config firebase.emulators.json --only auth,firestore,storage --project demo-young-vista
+npm run dev -w @youngvista/web -- --mode emulators   # second terminal; sign up to make a user
+```
+
+The emulators start empty and forget everything when stopped.
 
 Other scripts, all from the repo root:
 
