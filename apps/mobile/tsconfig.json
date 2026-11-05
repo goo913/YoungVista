@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "module": "preserve",
+    "customConditions": ["react-native"],
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "app",
+    "components",
+    "lib",
+    "scan",
+    "test",
+    "app.config.ts",
+    "env.d.ts",
+    "nativewind-env.d.ts"
+  ]
+}

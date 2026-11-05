@@ -11,7 +11,7 @@ furniture in it. A website shows the same rooms on a bigger screen.
 | Path | What it is |
 |---|---|
 | `apps/web` | Website: Vite, React, React Router, Tailwind, shadcn/ui, react-icons, Firebase, React Three Fiber (3D view). |
-| `apps/mobile` | Phone app (Expo and ViroReact). Being added next. |
+| `apps/mobile` | Phone app: Expo, Expo Router, ViroReact (AR), react-native-reusables, react-icons, Firebase. |
 | `packages/core` | Shared TypeScript with no platform code: room model, scan geometry, 3D room meshes, furniture placement, room editing, AR line-up, share and picture documents, units, catalog types. |
 | `firebase.json`, `.firebaserc` | Hosting, Firestore and Storage deploy settings. |
 | `firestore.rules`, `firestore.indexes.json`, `storage.rules` | Security rules and indexes, deployed by CI. |
@@ -57,6 +57,33 @@ Other scripts, all from the repo root:
 | `npm run lint` / `npm run format` | ESLint / Prettier |
 | `npm run build:web` | Production build into `apps/web/dist` |
 | `npm run test:rules` | Firestore and Storage rules against the emulators (needs Java 21+) |
+
+## Phone app
+
+A development build of an Expo app (Expo Go cannot load AR). Needs a Mac with Xcode for the
+iPhone, the Android SDK and JDK 17 for Android, and the phone on a cable with developer mode
+(iPhone) or USB debugging (Android) on.
+
+```sh
+npm install                               # from the repo root
+cp .secrets/mobile.env apps/mobile/.env   # or fill in apps/mobile/.env.example
+cd apps/mobile
+npx expo run:ios --device                 # iPhone: build, sign, install, start Metro
+npx expo run:android                      # Android phone
+```
+
+- The first run creates `ios/` and `android/` from `app.config.ts` (both gitignored). After
+  changing `app.config.ts`, `.env`'s `GOOGLE_IOS_URL_SCHEME` or a package with native code, run
+  `npx expo prebuild --clean` before building again.
+- Later, with the app already installed: `npx expo start --dev-client`, then open the app.
+- Scanning needs a real phone. The iOS Simulator cannot run the app at all: ViroReact ships
+  iPhone-only binaries and builds simulator apps for Intel, which iOS 27 simulators refuse. An
+  Android emulator (arm64 image) runs everything except AR.
+- iPhone builds are signed by Young Corporation of America (team `L276BBUKFM`, or set
+  `APPLE_TEAM_ID`). Android debug builds use the React Native debug keystore, whose SHA-1 is
+  registered in Firebase for Google sign-in; add the SHA-1 of any other signing key there too.
+- `npm run typecheck`, `npm test` and `npx eslint apps/mobile` cover the app. Device checks:
+  [docs/device-checklist.md](docs/device-checklist.md).
 
 ## Settings and secrets
 
