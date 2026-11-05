@@ -60,28 +60,29 @@ Other scripts, all from the repo root:
 
 ## Phone app
 
-A development build of an Expo app (Expo Go cannot load AR). Needs a Mac with Xcode for the
-iPhone, the Android SDK and JDK 17 for Android, and the phone on a cable with developer mode
-(iPhone) or USB debugging (Android) on.
+An Expo app with ViroReact (AR), so it needs a real phone on a cable and a Mac with Xcode (the
+Android SDK and JDK 17 for Android).
 
 ```sh
 npm install                               # from the repo root
 cp .secrets/mobile.env apps/mobile/.env   # or fill in apps/mobile/.env.example
-cd apps/mobile
-npx expo run:ios --device                 # iPhone: build, sign, install, start Metro
-npx expo run:android                      # Android phone
+npm run iphone                            # Release build on the iPhone plugged in
+npm run android                           # the same on an Android phone
+npm run publish:iphone                    # upload to TestFlight (the owner runs it)
 ```
 
-- The first run creates `ios/` and `android/` from `app.config.ts` (both gitignored). After
-  changing `app.config.ts`, `.env`'s `GOOGLE_IOS_URL_SCHEME` or a package with native code, run
-  `npx expo prebuild --clean` before building again.
-- Later, with the app already installed: `npx expo start --dev-client`, then open the app.
-- Scanning needs a real phone. The iOS Simulator cannot run the app at all: ViroReact ships
-  iPhone-only binaries and builds simulator apps for Intel, which iOS 27 simulators refuse. An
-  Android emulator (arm64 image) runs everything except AR.
+- Step by step, for anyone: [docs/running-the-apps.md](docs/running-the-apps.md) (phones by
+  cable, and the development build with Metro) and [docs/publishing/](docs/publishing/README.md)
+  (TestFlight; Google Play comes later). Claude Code prepares these; it never uploads.
+- `npm run iphone` and `npm run android` make `ios/` and `android/` from `app.config.ts` (both
+  gitignored) again only when the native set-up changed. The version and build number are in
+  `apps/mobile/release.json`.
+- The iOS Simulator cannot run the app at all: ViroReact ships iPhone-only binaries and builds
+  simulator apps for Intel, which iOS 27 simulators refuse. An Android emulator (arm64 image) runs
+  everything except AR.
 - iPhone builds are signed by Young Corporation of America (team `L276BBUKFM`, or set
-  `APPLE_TEAM_ID`). Android debug builds use the React Native debug keystore, whose SHA-1 is
-  registered in Firebase for Google sign-in; add the SHA-1 of any other signing key there too.
+  `APPLE_TEAM_ID`). Android builds use the React Native debug keystore, whose SHA-1 is registered
+  in Firebase for Google sign-in; add the SHA-1 of any other signing key there too.
 - `npm run typecheck`, `npm test` and `npx eslint apps/mobile` cover the app. Device checks:
   [docs/device-checklist.md](docs/device-checklist.md).
 

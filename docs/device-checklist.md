@@ -10,8 +10,9 @@ Android phone that supports ARCore (Google Play Services for AR installed).
 
 ### Install and sign in
 
-- [ ] Install a development build on the iPhone (`npx expo run:ios --device`) and on Android
-      (`npx expo run:android`). See "Phone app" in the README.
+- [ ] Install the app on the iPhone with `npm run iphone` (or from TestFlight) and on Android with
+      `npm run android`: [running-the-apps.md](running-the-apps.md). These are Release builds,
+      as the team gets them; the debug overlay is in them.
 - [ ] Email and password: create an account, sign out, sign in again, and request a password
       reset (the email arrives). A wrong password shows a plain message.
 - [ ] "Continue with Google" works on the iPhone and on Android. Closing the Google window does
