@@ -4,12 +4,15 @@ import {
   requestRequiredPermissions,
 } from '@reactvision/react-viro';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, AppState, Linking, View } from 'react-native';
+import { ActivityIndicator, AppState, Linking, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LuCamera, LuCameraOff, LuSmartphone } from 'react-icons/lu';
 import type { IconType } from 'react-icons';
+import { useLandscape } from '@/components/camera-hud';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 type GateState = 'checking' | 'unsupported' | 'ask' | 'denied' | 'ready';
 
@@ -147,6 +150,10 @@ interface GateAction {
   onPress: () => void;
 }
 
+/**
+ * Why the camera is not on, and what to do. On a camera screen in landscape: the words on the
+ * left and the buttons on the right, which fits the short screen; it scrolls should it not.
+ */
 function GateMessage({
   icon,
   title,
@@ -160,25 +167,43 @@ function GateMessage({
   primary: GateAction;
   secondary?: GateAction;
 }) {
+  const landscape = useLandscape();
+  const insets = useSafeAreaInsets();
   return (
-    <View className="bg-background flex-1 items-center justify-center gap-6 p-8">
-      <View className="bg-muted size-14 items-center justify-center rounded-full">
-        <Icon as={icon} size={28} className="text-muted-foreground" />
-      </View>
-      <View className="items-center gap-2">
-        <Text className="text-center text-xl font-semibold">{title}</Text>
-        <Text className="text-muted-foreground text-center">{body}</Text>
-      </View>
-      <View className="w-full gap-3">
-        <Button size="lg" onPress={primary.onPress}>
-          <Text>{primary.label}</Text>
-        </Button>
-        {secondary ? (
-          <Button size="lg" variant="ghost" onPress={secondary.onPress}>
-            <Text>{secondary.label}</Text>
+    <ScrollView
+      className="bg-background flex-1"
+      contentContainerClassName="grow items-center justify-center"
+      contentContainerStyle={{
+        paddingTop: insets.top + (landscape ? 16 : 32),
+        paddingBottom: insets.bottom + (landscape ? 16 : 32),
+        paddingLeft: insets.left + 32,
+        paddingRight: insets.right + 32,
+      }}
+      bounces={false}
+    >
+      <View className={cn('w-full', landscape ? 'max-w-2xl flex-row items-center gap-8' : 'gap-6')}>
+        <View className={cn('gap-4', landscape ? 'flex-1 items-start' : 'items-center gap-6')}>
+          <View className="bg-muted size-14 items-center justify-center rounded-full">
+            <Icon as={icon} size={28} className="text-muted-foreground" />
+          </View>
+          <View className={cn('gap-2', !landscape && 'items-center')}>
+            <Text className={cn('text-xl font-semibold', !landscape && 'text-center')}>
+              {title}
+            </Text>
+            <Text className={cn('text-muted-foreground', !landscape && 'text-center')}>{body}</Text>
+          </View>
+        </View>
+        <View className={cn('gap-3', landscape ? 'w-60' : 'w-full')}>
+          <Button size="lg" onPress={primary.onPress}>
+            <Text>{primary.label}</Text>
           </Button>
-        ) : null}
+          {secondary ? (
+            <Button size="lg" variant="ghost" onPress={secondary.onPress}>
+              <Text>{secondary.label}</Text>
+            </Button>
+          ) : null}
+        </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }

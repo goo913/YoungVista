@@ -11,6 +11,18 @@ const DEFAULT_APPLE_TEAM_ID = 'L276BBUKFM';
 
 const CAMERA_USE = 'YoungVista uses the camera to find the floor and walls of your room.';
 
+/**
+ * Upright everywhere except the camera screens (scan, the room in the camera view, place
+ * freely), which turn to landscape either way round, for a wider view. Each screen sets its own
+ * (app/_layout.tsx and the stacks under it); the app as a whole allows these three. Never upside
+ * down.
+ */
+const IOS_ORIENTATIONS = [
+  'UIInterfaceOrientationPortrait',
+  'UIInterfaceOrientationLandscapeLeft',
+  'UIInterfaceOrientationLandscapeRight',
+];
+
 /** Shown once, the first time "Take picture" saves a picture (add-only access: no reading). */
 const SAVE_PHOTOS_USE =
   'YoungVista saves the pictures you take of your rooms to your photo library. It does not read your photos.';
@@ -62,7 +74,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     slug: 'youngvista',
     scheme: 'youngvista',
     version: release.version,
-    orientation: 'portrait',
+    // No `orientation`: each screen chooses (IOS_ORIENTATIONS), and Expo's 'default' adds upside down.
     userInterfaceStyle: 'automatic',
     // The icon and splash images come from assets/brand/mark.svg (scripts/render-icons.mjs).
     icon: './assets/icon.png',
@@ -72,6 +84,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       appleTeamId: process.env.APPLE_TEAM_ID || DEFAULT_APPLE_TEAM_ID,
       supportsTablet: false,
       infoPlist: {
+        UISupportedInterfaceOrientations: IOS_ORIENTATIONS,
         NSCameraUsageDescription: CAMERA_USE,
         NSPhotoLibraryAddUsageDescription: SAVE_PHOTOS_USE,
         ITSAppUsesNonExemptEncryption: false,

@@ -4,13 +4,13 @@
  */
 import { describeRoomSize, formatArea, roomArea, type UnitSystem } from '@youngvista/core';
 import { ActivityIndicator, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LuView } from 'react-icons/lu';
 import type { ArController } from '@/ar/controller';
 import { scanLineUpOffset } from '@/ar/pose';
 import { ArRoom } from '@/components/ar/ar-room';
 import type { ArSceneState } from '@/components/ar/ar-scene';
 import type { ArViewHandle } from '@/components/ar/ar-view';
+import { useHudPadding, useLandscape } from '@/components/camera-hud';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
@@ -18,7 +18,11 @@ import { Text } from '@/components/ui/text';
 import { useCatalog } from '@/lib/catalog';
 import { useRoom } from '@/lib/rooms';
 import type { Store } from '@/lib/store';
+import { cn } from '@/lib/utils';
 import type { SavedRoom } from './room-review';
+
+/** Landscape: the saved card's width (points), at the bottom right like the scan's controls. */
+const SAVED_CARD_WIDTH = 340;
 
 export function SavedCard({
   saved,
@@ -31,14 +35,18 @@ export function SavedCard({
   onSeeInRoom: () => void;
   onOpenRoom: () => void;
 }) {
-  const insets = useSafeAreaInsets();
+  const landscape = useLandscape();
+  const padding = useHudPadding(landscape);
   return (
     <View
-      className="absolute inset-x-0 bottom-0 px-4"
-      style={{ paddingBottom: insets.bottom + 12 }}
+      className={cn('absolute inset-0 justify-end', landscape ? 'items-end' : 'px-4')}
+      style={padding}
       pointerEvents="box-none"
     >
-      <Card>
+      <Card
+        className={cn(landscape && 'gap-4 py-4')}
+        style={landscape ? { width: SAVED_CARD_WIDTH } : undefined}
+      >
         <CardHeader>
           <CardTitle className="text-lg">Room saved</CardTitle>
           <CardDescription>
@@ -97,7 +105,7 @@ export function ArAfterScan({
   const failed = room.status === 'error' || room.status === 'missing' || catalog.status === 'error';
   return (
     <View className="absolute inset-0 items-center justify-center p-6">
-      <View className="items-center gap-3 rounded-2xl bg-black/60 px-6 py-5">
+      <View className="max-w-md items-center gap-3 rounded-2xl bg-black/60 px-6 py-5">
         {failed ? null : <ActivityIndicator color="white" />}
         <Text className="text-center text-sm text-white">
           {failed

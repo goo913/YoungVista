@@ -1,10 +1,23 @@
 /**
  * Choosing a piece of furniture to add: categories, pictures, names and real sizes. Opens as a
  * sheet over the furniture screen or the camera view (an AR session keeps running under it).
+ *
+ * Over the camera view (`overCamera`) it stays in that screen's landscape: a React Native modal
+ * allows only portrait on iPhone unless told otherwise, and would turn the whole screen, the AR
+ * view under it too. In landscape it shows more, smaller cards per row.
  */
 import type { CatalogItem, UnitSystem } from '@youngvista/core';
 import { useMemo, useState } from 'react';
-import { FlatList, Image, Modal, Pressable, ScrollView, View } from 'react-native';
+import {
+  FlatList,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  useWindowDimensions,
+  View,
+  type ModalProps,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LuArmchair, LuSearchX, LuView, LuX } from 'react-icons/lu';
 import { Button } from '@/components/ui/button';
@@ -15,6 +28,12 @@ import { formatSize } from '@/furnish/describe';
 import { categoryGroups, thumbUrl, type CatalogIndex } from '@/lib/catalog-data';
 import { cn } from '@/lib/utils';
 
+/** The camera screens' orientations (app/(app)/_layout.tsx). */
+const CAMERA_ORIENTATIONS: ModalProps['supportedOrientations'] = [
+  'landscape-left',
+  'landscape-right',
+];
+
 export function FurniturePicker({
   visible,
   catalog,
@@ -23,6 +42,7 @@ export function FurniturePicker({
   onClose,
   onCredits,
   onPlaceFreely,
+  overCamera = false,
 }: {
   visible: boolean;
   catalog: CatalogIndex;
@@ -33,27 +53,54 @@ export function FurniturePicker({
   onCredits?: () => void;
   /** "Place freely": try pieces in the camera view, no room needed. */
   onPlaceFreely?: () => void;
+  /** Opened over a camera screen, which is in landscape (see the header). */
+  overCamera?: boolean;
 }) {
+  const size = useWindowDimensions();
+  const wide = size.width > size.height;
+  const columns = wide ? 5 : 2;
   const groups = useMemo(() => categoryGroups(catalog.catalog), [catalog]);
   const [category, setCategory] = useState<string | null>(null);
-  // An odd count gets an empty cell at the end, so the last card keeps the width of the others.
+  const chips = (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerClassName={wide ? 'gap-2 px-1' : 'gap-2 px-4 pb-3'}
+    >
+      <Chip label="All" active={category === null} onPress={() => setCategory(null)} />
+      {groups.map((g) => (
+        <Chip
+          key={g.id}
+          label={g.label}
+          active={category === g.id}
+          onPress={() => setCategory(g.id)}
+        />
+      ))}
+    </ScrollView>
+  );
+  // A short last row gets empty cells, so its cards keep the width of the others.
   const items = useMemo<(CatalogItem | null)[]>(() => {
     const list = category
       ? (groups.find((g) => g.id === category)?.items ?? [])
       : catalog.catalog.items;
-    return list.length % 2 ? [...list, null] : list;
-  }, [category, groups, catalog]);
+    const short = list.length % columns;
+    return short ? [...list, ...Array<null>(columns - short).fill(null)] : list;
+  }, [category, groups, catalog, columns]);
 
   return (
     <Modal
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
+      supportedOrientations={overCamera ? CAMERA_ORIENTATIONS : undefined}
       onRequestClose={onClose}
     >
-      <SafeAreaView className="bg-background flex-1" edges={['top', 'bottom']}>
+      {/* All edges: in landscape the Dynamic Island and the corners are at the sides. */}
+      <SafeAreaView className="bg-background flex-1" edges={['top', 'bottom', 'left', 'right']}>
+        {/* In landscape, where height is short, the categories sit in the title's row. */}
         <View className="flex-row items-center justify-between gap-2 px-4 pb-2 pt-3">
-          <Text className="flex-1 text-lg font-semibold">Add furniture</Text>
+          <Text className={cn('text-lg font-semibold', !wide && 'flex-1')}>Add furniture</Text>
+          {wide ? <View className="flex-1">{chips}</View> : null}
           {onPlaceFreely ? (
             <Button
               variant="outline"
@@ -69,27 +116,13 @@ export function FurniturePicker({
             <Icon as={LuX} size={20} />
           </Button>
         </View>
-        <View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerClassName="gap-2 px-4 pb-3"
-          >
-            <Chip label="All" active={category === null} onPress={() => setCategory(null)} />
-            {groups.map((g) => (
-              <Chip
-                key={g.id}
-                label={g.label}
-                active={category === g.id}
-                onPress={() => setCategory(g.id)}
-              />
-            ))}
-          </ScrollView>
-        </View>
+        {wide ? null : <View>{chips}</View>}
         <FlatList
+          // A FlatList cannot change its number of columns: a new one when the screen turns.
+          key={columns}
           data={items}
-          keyExtractor={(item) => item?.id ?? 'empty'}
-          numColumns={2}
+          keyExtractor={(item, index) => item?.id ?? `empty-${index}`}
+          numColumns={columns}
           columnWrapperClassName="gap-3"
           contentContainerClassName="gap-3 px-4 pb-6"
           renderItem={({ item }) =>

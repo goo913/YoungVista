@@ -1,11 +1,13 @@
 /**
- * Pieces of the AR screens drawn over the camera: the top bar, the dot in the middle with what
- * it is on, messages, and the card at the bottom.
+ * Pieces of the AR screens drawn over the camera: the close button, the dot in the middle with
+ * what it is on, messages, and the card with the controls. components/camera-hud.tsx places
+ * them, upright or in landscape.
  */
 import { formatLength, type UnitSystem } from '@youngvista/core';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 import { LuX } from 'react-icons/lu';
+import { useLandscape } from '@/components/camera-hud';
 import { RoundButton } from '@/components/scan/scan-hud';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -21,27 +23,15 @@ export function floorMessage(status: FloorStatus): Message | null {
   return status === 'too-high' ? STEP_MESSAGES['too-high'] : STEP_MESSAGES.searching;
 }
 
-export function ArTopBar({
-  title,
+/** The round button that leaves the camera view. */
+export function CloseButton({
   onClose,
-  closeLabel = 'Close the camera view',
-  children,
+  label = 'Close the camera view',
 }: {
-  title: string;
   onClose: () => void;
-  closeLabel?: string;
-  /** Round buttons on the right. */
-  children?: ReactNode;
+  label?: string;
 }) {
-  return (
-    <View className="flex-row items-center justify-between gap-2">
-      <RoundButton icon={LuX} label={closeLabel} onPress={onClose} />
-      <Text className="flex-1 text-center text-base font-semibold text-white" numberOfLines={1}>
-        {title}
-      </Text>
-      <View className="min-w-10 flex-row justify-end gap-2">{children}</View>
-    </View>
-  );
+  return <RoundButton icon={LuX} label={label} onPress={onClose} />;
 }
 
 /** What the dot is on: "Floor · 2′ 3″ away", or what to do instead. */
@@ -59,7 +49,11 @@ export function aimLabel(aim: FloorAim, units: UnitSystem, what = 'Floor'): stri
   }
 }
 
-/** The dot in the middle of the screen, and a label below it. */
+/**
+ * The dot in the middle of the screen, and a label below it: the camera's forward ray, the
+ * middle of the view whichever way the phone is held. The label is narrow enough to stay clear
+ * of the controls at the side in landscape (a long one wraps).
+ */
 export function ArReticle({ ok, label }: { ok: boolean; label: string | null }) {
   return (
     <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
@@ -72,8 +66,10 @@ export function ArReticle({ ok, label }: { ok: boolean; label: string | null }) 
         <View className={cn('size-2 rounded-full', ok ? 'bg-green-400' : 'bg-white/40')} />
       </View>
       {label ? (
-        <View className="absolute top-1/2 mt-6 rounded-full bg-black/60 px-3 py-1">
-          <Text className={cn('text-xs font-medium', ok ? 'text-white' : 'text-amber-300')}>
+        <View className="absolute top-1/2 mt-6 max-w-[260px] rounded-full bg-black/60 px-3 py-1">
+          <Text
+            className={cn('text-center text-xs font-medium', ok ? 'text-white' : 'text-amber-300')}
+          >
             {label}
           </Text>
         </View>
@@ -87,7 +83,10 @@ export interface BannerAction {
   onPress: () => void;
 }
 
-/** A message over the camera view: what to do now, or what just happened. */
+/**
+ * A message over the camera view: what to do now, or what just happened. In landscape the text
+ * is a size smaller, so that two messages at the top still end above the dot in the middle.
+ */
 export function ArBanner({
   tone = 'info',
   title,
@@ -101,18 +100,24 @@ export function ArBanner({
   action?: BannerAction;
   onDismiss?: () => void;
 }) {
+  const landscape = useLandscape();
   return (
     <View
       className={cn(
-        'flex-row items-center gap-3 rounded-2xl px-4 py-3',
+        'flex-row items-center gap-3 rounded-2xl px-4',
+        landscape ? 'py-2' : 'py-3',
         tone === 'error' ? 'bg-red-600/90' : tone === 'success' ? 'bg-green-700/90' : 'bg-black/60',
       )}
       accessibilityLiveRegion="polite"
       accessibilityRole={tone === 'error' ? 'alert' : undefined}
     >
       <View className="flex-1 gap-0.5">
-        <Text className="text-base font-semibold text-white">{title}</Text>
-        {detail ? <Text className="text-sm text-white/85">{detail}</Text> : null}
+        <Text className={cn('font-semibold text-white', landscape ? 'text-sm' : 'text-base')}>
+          {title}
+        </Text>
+        {detail ? (
+          <Text className={cn('text-white/85', landscape ? 'text-xs' : 'text-sm')}>{detail}</Text>
+        ) : null}
       </View>
       {action ? (
         <Button size="sm" variant="secondary" onPress={action.onPress}>

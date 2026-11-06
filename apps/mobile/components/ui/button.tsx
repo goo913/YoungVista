@@ -39,11 +39,13 @@ const buttonVariants = cva(
         ),
         link: '',
       },
+      // The smaller `sm:` sizes are web-only: on a phone, `sm:` (640 points wide and up) matches
+      // only in landscape, on the camera screens, which want the same thumb-sized buttons.
       size: {
-        default: cn('h-10 px-4 py-2 sm:h-9', Platform.select({ web: 'has-[>svg]:px-3' })),
-        sm: cn('h-9 gap-1.5 rounded-md px-3 sm:h-8', Platform.select({ web: 'has-[>svg]:px-2.5' })),
-        lg: cn('h-11 rounded-md px-6 sm:h-10', Platform.select({ web: 'has-[>svg]:px-4' })),
-        icon: 'h-10 w-10 sm:h-9 sm:w-9',
+        default: cn('h-10 px-4 py-2', Platform.select({ web: 'sm:h-9 has-[>svg]:px-3' })),
+        sm: cn('h-9 gap-1.5 rounded-md px-3', Platform.select({ web: 'sm:h-8 has-[>svg]:px-2.5' })),
+        lg: cn('h-11 rounded-md px-6', Platform.select({ web: 'sm:h-10 has-[>svg]:px-4' })),
+        icon: cn('h-10 w-10', Platform.select({ web: 'sm:h-9 sm:w-9' })),
       },
     },
     defaultVariants: {

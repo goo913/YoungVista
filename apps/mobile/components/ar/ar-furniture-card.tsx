@@ -1,5 +1,6 @@
 import type { UnitSystem } from '@youngvista/core';
 import { LuPlus } from 'react-icons/lu';
+import { useLandscape } from '@/components/camera-hud';
 import { ItemPanel } from '@/components/furnish/item-panel';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -9,9 +10,10 @@ import { ArCard } from './ar-hud';
 import type { useArFurniture } from './use-ar-furniture';
 
 /**
- * The bottom card once the room is lined up (or the floor found, placing freely): the selected
- * piece's name, size, 15° turns, copy, remove and colours; else what to do and "Add furniture",
- * which puts the chosen piece where the dot is.
+ * The card once the room is lined up (or the floor found, placing freely): the selected piece's
+ * name, size, 15° turns, copy, remove and colours; else what to do and "Add furniture", which
+ * puts the chosen piece where the dot is. At the bottom, or at the bottom right in landscape,
+ * where it is narrower: the piece's four buttons go in two rows there.
  */
 export function ArFurnitureCard({
   ar,
@@ -26,6 +28,7 @@ export function ArFurnitureCard({
   hint: string;
   onAddError: (message: string) => void;
 }) {
+  const landscape = useLandscape();
   const { selected, product, dispatch } = ar;
   if (selected) {
     return (
@@ -34,6 +37,7 @@ export function ArFurnitureCard({
           item={selected}
           product={product(selected.productId)}
           units={units}
+          buttonRows={landscape ? 2 : 1}
           onRotate={(degrees) => dispatch({ type: 'rotate-by', id: selected.id, degrees })}
           onDuplicate={() => dispatch({ type: 'duplicate', id: selected.id })}
           onRemove={() => dispatch({ type: 'remove', id: selected.id })}

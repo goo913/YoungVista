@@ -28,7 +28,6 @@ import {
 import { useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { PixelRatio, StyleSheet, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   LuBox,
   LuCrosshair,
@@ -64,6 +63,7 @@ import {
 import { aheadOnFloor, MAX_FLOOR_REACH, sameLineUp, worldToRoom } from '@/ar/pose';
 import { RoomMover, type RoomMoverInput } from '@/ar/room-mover';
 import { rayCaster } from '@/ar/touch';
+import { CameraHud, HUD_RAIL, useLandscape } from '@/components/camera-hud';
 import { FurniturePicker } from '@/components/furnish/furniture-picker';
 import { SaveIndicator } from '@/components/save-indicator';
 import { RoundButton } from '@/components/scan/scan-hud';
@@ -80,6 +80,7 @@ import { saveDesign, type ServerDesign } from '@/lib/rooms';
 import { useStore, type Store } from '@/lib/store';
 import { useUnits } from '@/lib/units';
 import { useAutosave } from '@/lib/use-autosave';
+import { cn } from '@/lib/utils';
 import type { Message } from '@/scan/coaching';
 import { ArFurnitureCard } from './ar-furniture-card';
 import { ArGestures } from './ar-gestures';
@@ -88,7 +89,7 @@ import {
   ArBanner,
   ArCard,
   ArReticle,
-  ArTopBar,
+  CloseButton,
   floorMessage,
   type BannerAction,
 } from './ar-hud';
@@ -147,7 +148,7 @@ export function ArRoom({
   pendingDesign = false,
   onClose,
 }: ArRoomProps) {
-  const insets = useSafeAreaInsets();
+  const landscape = useLandscape();
   const [units] = useUnits();
   const { state: tracking, derived } = useSyncExternalStore(
     controller.subscribe,
@@ -460,126 +461,135 @@ export function ArRoom({
       {!done || !selectedId || moving ? (
         <ArReticle ok={derived.aim.ok} label={reticleLabel} />
       ) : null}
-      <View
-        className="absolute inset-0"
-        pointerEvents="box-none"
-        style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }}
-      >
-        <View className="gap-3 px-4" pointerEvents="box-none">
-          <ArTopBar title={summary.name} onClose={onClose}>
-            {done ? (
-              <>
-                {moving ? null : (
-                  <RoundButton
-                    icon={LuBox}
-                    label={ghost ? 'Hide the ghost walls' : 'Show the ghost walls'}
-                    onPress={() => setGhost(!ghost)}
-                    active={ghost}
-                  />
-                )}
-                <RoundButton
-                  icon={LuMove}
-                  label={moving ? 'Stop moving the room' : 'Move the room'}
-                  onPress={() => (moving ? setMoving(null) : startMoving())}
-                  active={moving !== null}
-                />
-                <RoundButton icon={LuLocateFixed} label="Line up again" onPress={again} />
-              </>
-            ) : null}
-          </ArTopBar>
-          {done ? (
-            <View className="bg-background/90 self-center rounded-full px-3 py-1">
+      <CameraHud
+        close={<CloseButton onClose={onClose} />}
+        title={summary.name}
+        status={
+          done ? (
+            <View className="bg-background/90 rounded-full px-3 py-1">
               <SaveIndicator status={status} />
             </View>
-          ) : null}
-          {guidance ? (
-            <ArBanner title={guidance.title} detail={guidance.detail} action={guidanceAction} />
-          ) : null}
-          {banner}
-        </View>
-        <View className="flex-1" pointerEvents="box-none" />
-        <View className="px-4" pointerEvents="box-none">
-          {lining && !done ? (
-            <View className="flex-row items-end gap-3" pointerEvents="box-none">
-              <LineUpPlan room={room} corners={currentPair(lining)} step={step} />
-              <View className="flex-1 gap-2">
-                {poor ? (
-                  <Button size="lg" onPress={() => setLining(retryLineUp(lining))}>
-                    <Text>Try again</Text>
-                  </Button>
-                ) : (
-                  <Button
-                    size="lg"
-                    onPressIn={() => controller.holdAim()}
-                    onPress={tapHere}
-                    disabled={floorY === null}
-                    accessibilityHint="Marks the corner under the dot in the middle of the screen."
-                  >
-                    <Icon as={LuCrosshair} size={18} />
-                    <Text>Corner here</Text>
-                  </Button>
-                )}
-                <View className="flex-row flex-wrap gap-2">
-                  {step === 1 ? (
-                    <OverlayButton
-                      label="Undo"
-                      icon={LuUndo2}
-                      onPress={() => setLining(undoTap(lining))}
-                    />
-                  ) : null}
-                  {lining.pairs.length > 1 ? (
-                    <OverlayButton
-                      label="Other corners"
-                      onPress={() => setLining(otherCorners(lining))}
-                    />
-                  ) : null}
+          ) : null
+        }
+        actions={
+          done ? (
+            <>
+              {moving ? null : (
+                <RoundButton
+                  icon={LuBox}
+                  label={ghost ? 'Hide the ghost walls' : 'Show the ghost walls'}
+                  onPress={() => setGhost(!ghost)}
+                  active={ghost}
+                />
+              )}
+              <RoundButton
+                icon={LuMove}
+                label={moving ? 'Stop moving the room' : 'Move the room'}
+                onPress={() => (moving ? setMoving(null) : startMoving())}
+                active={moving !== null}
+              />
+              <RoundButton icon={LuLocateFixed} label="Line up again" onPress={again} />
+            </>
+          ) : null
+        }
+        messages={
+          <>
+            {guidance ? (
+              <ArBanner title={guidance.title} detail={guidance.detail} action={guidanceAction} />
+            ) : null}
+            {banner}
+          </>
+        }
+        map={
+          lining && !done ? (
+            <LineUpPlan room={room} corners={currentPair(lining)} step={step} />
+          ) : done && moving ? (
+            <LineUpPlan room={room} phone={phoneInRoom} size={112} />
+          ) : null
+        }
+        controlsWidth={lining && !done ? HUD_RAIL.buttons : HUD_RAIL.card}
+        controls={
+          lining && !done ? (
+            <View className="gap-2" pointerEvents="box-none">
+              {poor ? (
+                <Button size="lg" onPress={() => setLining(retryLineUp(lining))}>
+                  <Text>Try again</Text>
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  onPressIn={() => controller.holdAim()}
+                  onPress={tapHere}
+                  disabled={floorY === null}
+                  accessibilityHint="Marks the corner under the dot in the middle of the screen."
+                >
+                  <Icon as={LuCrosshair} size={18} />
+                  <Text>Corner here</Text>
+                </Button>
+              )}
+              {/* Side by side, wrapping; in landscape's narrow column each row is filled. */}
+              <View className="flex-row flex-wrap gap-2">
+                {step === 1 ? (
                   <OverlayButton
-                    label="Place by hand"
-                    icon={LuHand}
-                    onPressIn={() => controller.holdAim()}
-                    onPress={placeHere}
-                    disabled={floorY === null}
-                    hint="Puts the room where the dot is; then drag and turn it into place."
+                    label="Undo"
+                    icon={LuUndo2}
+                    onPress={() => setLining(undoTap(lining))}
+                    grow={landscape}
                   />
-                  {lining.previous ? (
-                    <OverlayButton label="Cancel" onPress={() => setLining(cancelLineUp(lining))} />
-                  ) : null}
-                </View>
+                ) : null}
+                {lining.pairs.length > 1 ? (
+                  <OverlayButton
+                    label="Other corners"
+                    onPress={() => setLining(otherCorners(lining))}
+                    grow={landscape}
+                  />
+                ) : null}
+                <OverlayButton
+                  label="Place by hand"
+                  icon={LuHand}
+                  onPressIn={() => controller.holdAim()}
+                  onPress={placeHere}
+                  disabled={floorY === null}
+                  hint="Puts the room where the dot is; then drag and turn it into place."
+                  grow={landscape}
+                />
+                {lining.previous ? (
+                  <OverlayButton
+                    label="Cancel"
+                    onPress={() => setLining(cancelLineUp(lining))}
+                    grow={landscape}
+                  />
+                ) : null}
               </View>
             </View>
           ) : done && moving ? (
-            <View className="flex-row items-end gap-3" pointerEvents="box-none">
-              <LineUpPlan room={room} phone={phoneInRoom} size={112} />
-              <View className="flex-1">
-                <ArCard>
-                  <View className="gap-1">
-                    <Text className="text-base font-semibold">Move the room</Text>
-                    <Text className="text-muted-foreground text-xs">
-                      One finger drags the room along the floor, two fingers turn it. Line up the
-                      ghost walls with the real walls. The blue dot on the plan is you.
-                    </Text>
-                  </View>
-                  <View className="flex-row flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onPress={turnQuarter}
-                      accessibilityLabel="Turn the room a quarter turn"
-                    >
-                      <Icon as={LuRotateCw} size={14} />
-                      <Text>Turn 90°</Text>
-                    </Button>
-                    <Button variant="outline" size="sm" onPress={undoMove}>
-                      <Icon as={LuUndo2} size={14} />
-                      <Text>Undo</Text>
-                    </Button>
-                    <Button size="sm" className="flex-1" onPress={() => setMoving(null)}>
-                      <Text>Done</Text>
-                    </Button>
-                  </View>
-                </ArCard>
+            <ArCard>
+              <View className="gap-1">
+                <Text className="text-base font-semibold">Move the room</Text>
+                <Text className="text-muted-foreground text-xs">
+                  One finger drags the room along the floor, two fingers turn it. Line up the ghost
+                  walls with the real walls. The blue dot on the plan is you.
+                </Text>
               </View>
-            </View>
+              <View className="flex-row flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onPress={turnQuarter}
+                  accessibilityLabel="Turn the room a quarter turn"
+                >
+                  <Icon as={LuRotateCw} size={14} />
+                  <Text>Turn 90°</Text>
+                </Button>
+                <Button variant="outline" size="sm" onPress={undoMove}>
+                  <Icon as={LuUndo2} size={14} />
+                  <Text>Undo</Text>
+                </Button>
+                <Button size="sm" className="flex-1" onPress={() => setMoving(null)}>
+                  <Text>Done</Text>
+                </Button>
+              </View>
+            </ArCard>
           ) : done ? (
             <ArFurnitureCard
               ar={ar}
@@ -592,15 +602,16 @@ export function ArRoom({
               }
               onAddError={(message) => setNote({ tone: 'error', title: message })}
             />
-          ) : null}
-        </View>
-      </View>
+          ) : null
+        }
+      />
       <FurniturePicker
         visible={ar.picking}
         catalog={catalog}
         units={units}
         onClose={ar.closePicker}
         onPick={ar.pick}
+        overCamera
       />
     </>
   );
@@ -611,7 +622,7 @@ function idleMover(): RoomMoverInput {
   return { lineUp: null, floorY: null, pivot: () => null, onMove: () => {}, onEnd: () => {} };
 }
 
-/** An outlined button over the camera view. */
+/** An outlined button over the camera view; `grow` fills what is left of its row. */
 function OverlayButton({
   label,
   icon,
@@ -619,6 +630,7 @@ function OverlayButton({
   onPressIn,
   disabled,
   hint,
+  grow = false,
 }: {
   label: string;
   icon?: React.ComponentProps<typeof Icon>['as'];
@@ -626,11 +638,12 @@ function OverlayButton({
   onPressIn?: () => void;
   disabled?: boolean;
   hint?: string;
+  grow?: boolean;
 }) {
   return (
     <Button
       variant="outline"
-      className="border-white/40 bg-black/40"
+      className={cn('border-white/40 bg-black/40', grow && 'grow')}
       onPress={onPress}
       onPressIn={onPressIn}
       disabled={disabled}

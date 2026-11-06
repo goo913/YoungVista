@@ -1,12 +1,12 @@
 import { formatLength } from '@youngvista/core';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIsFocused, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Platform, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LuBug, LuX } from 'react-icons/lu';
 import { ArController } from '@/ar/controller';
 import { initialArSceneState } from '@/components/ar/ar-scene';
+import { CameraHud, CameraScreen, useLandscape } from '@/components/camera-hud';
 import { ArAfterScan, SavedCard } from '@/components/scan/after-scan';
 import { ScanArView, type ScanArHandle } from '@/components/scan/ar-view';
 import { CameraGate } from '@/components/scan/camera-gate';
@@ -19,7 +19,13 @@ import {
   type RoomDraft,
   type SavedRoom,
 } from '@/components/scan/room-review';
-import { GuidanceBanner, Notice, Reticle, ScanControls, TopBar } from '@/components/scan/scan-hud';
+import {
+  GuidanceBanner,
+  Notice,
+  Reticle,
+  RoundButton,
+  ScanControls,
+} from '@/components/scan/scan-hud';
 import { ScanTips } from '@/components/scan/scan-tips';
 import { useUser } from '@/lib/auth';
 import { createStore } from '@/lib/store';
@@ -39,18 +45,25 @@ type Built = Extract<FinishResult, { ok: true }>;
  * screen, over one AR session. The review is shown over the running session, so that after
  * saving, "See it in your room" swaps the scan's AR scene for the room's and the room needs no
  * lining up: its corners are the scan's own world coordinates (see ar/pose.ts).
+ *
+ * The screen runs in landscape, either way round (app/(app)/_layout.tsx), the review and the
+ * camera view after it too: the AR session keeps running under them, so the screen never turns.
  */
 export default function ScanScreen() {
   // "Scan again" starts over with a new session.
   const [attempt, setAttempt] = useState(0);
-  return <ScanSession key={attempt} onRestart={() => setAttempt((n) => n + 1)} />;
+  return (
+    <CameraScreen>
+      <ScanSession key={attempt} onRestart={() => setAttempt((n) => n + 1)} />
+    </CameraScreen>
+  );
 }
 
 function ScanSession({ onRestart }: { onRestart: () => void }) {
   useKeepAwake();
   const router = useRouter();
   const focused = useIsFocused();
-  const insets = useSafeAreaInsets();
+  const landscape = useLandscape();
   const [units] = useUnits();
   const user = useUser();
 
@@ -246,7 +259,6 @@ function ScanSession({ onRestart }: { onRestart: () => void }) {
 
   return (
     <View className="flex-1 bg-black">
-      <StatusBar style="light" />
       {focused ? (
         <CameraGate onClose={close}>
           <ScanArView ref={arView} controller={controller} ar={arProps} furnishing={inAr} />
@@ -269,55 +281,50 @@ function ScanSession({ onRestart }: { onRestart: () => void }) {
               onScanAgain={scanAgain}
               onDiscard={discard}
             />
+          ) : built ? (
+            <CeilingStep built={built} units={units} onBack={() => setBuilt(null)} onNext={next} />
           ) : (
-            <View
-              className="absolute inset-0"
-              pointerEvents="box-none"
-              style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }}
-            >
-              {built ? (
-                <CeilingStep
-                  built={built}
-                  units={units}
-                  onBack={() => setBuilt(null)}
-                  onNext={next}
-                />
-              ) : (
-                <>
-                  <Reticle derived={snapshot.derived} units={units} />
-                  <View className="gap-3 px-4" pointerEvents="box-none">
-                    <TopBar debug={debug} onClose={close} onToggleDebug={() => setDebug(!debug)} />
+            <>
+              <Reticle derived={snapshot.derived} units={units} />
+              <CameraHud
+                close={<RoundButton icon={LuX} label="Stop scanning" onPress={close} />}
+                title="Scan a room"
+                actions={
+                  <RoundButton
+                    icon={LuBug}
+                    label={debug ? 'Hide debug overlay' : 'Show debug overlay'}
+                    onPress={() => setDebug(!debug)}
+                    active={debug}
+                  />
+                }
+                messages={
+                  <>
                     {debug ? null : <GuidanceBanner message={snapshot.derived.message} />}
                     {notice ? (
                       <Notice tone={notice.tone} onDismiss={() => setNotice(null)}>
                         {notice.text}
                       </Notice>
                     ) : null}
-                  </View>
-                  <View className="flex-1 px-4 py-3" pointerEvents="box-none">
-                    {debug ? (
-                      <View className="max-h-[70%]">
-                        <DebugPanel snapshot={snapshot} controller={controller} />
-                      </View>
-                    ) : null}
-                  </View>
-                  <View className="flex-row items-end gap-3 px-4">
-                    <MiniMap derived={snapshot.derived} />
-                    <ScanControls
-                      snapshot={snapshot}
-                      onMarkPressIn={() => controller.holdAim()}
-                      onMark={mark}
-                      onUndo={() => {
-                        controller.undo();
-                        setNotice(null);
-                      }}
-                      onSkipCeiling={() => controller.skipCeiling()}
-                      onDone={finish}
-                    />
-                  </View>
-                </>
-              )}
-            </View>
+                  </>
+                }
+                aside={debug ? <DebugPanel snapshot={snapshot} controller={controller} /> : null}
+                // Smaller beside the raw data in landscape, which shares the left side with it.
+                map={<MiniMap derived={snapshot.derived} size={landscape && debug ? 112 : 152} />}
+                controls={
+                  <ScanControls
+                    snapshot={snapshot}
+                    onMarkPressIn={() => controller.holdAim()}
+                    onMark={mark}
+                    onUndo={() => {
+                      controller.undo();
+                      setNotice(null);
+                    }}
+                    onSkipCeiling={() => controller.skipCeiling()}
+                    onDone={finish}
+                  />
+                }
+              />
+            </>
           )}
         </CameraGate>
       ) : null}

@@ -1,6 +1,7 @@
 /**
  * The selected piece: its name and real size, turn it 15° either way, copy or remove it, and its
- * colours when it has some.
+ * colours when it has some. The four buttons stand in one row, or in two (`buttonRows`) where
+ * the panel is narrow (the camera view's side column in landscape).
  */
 import type { CatalogItem, DesignItem, UnitSystem } from '@youngvista/core';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -21,6 +22,7 @@ export function ItemPanel({
   onRemove,
   onVariant,
   onClose,
+  buttonRows = 1,
 }: {
   item: DesignItem;
   product: CatalogItem | null;
@@ -30,8 +32,11 @@ export function ItemPanel({
   onRemove: () => void;
   onVariant: (variant: string) => void;
   onClose: () => void;
+  buttonRows?: 1 | 2;
 }) {
   const variant = product ? activeVariant(product, item.variant) : null;
+  // Two rows: each button half the width (minus half the gap), so two fit side by side.
+  const button = cn('px-0', buttonRows === 2 ? 'basis-[47%] grow' : 'flex-1');
   return (
     <View className="gap-3">
       <View className="flex-row items-start gap-3">
@@ -56,10 +61,10 @@ export function ItemPanel({
           <Icon as={LuX} size={18} />
         </Button>
       </View>
-      <View className="flex-row gap-2">
+      <View className={cn('flex-row gap-2', buttonRows === 2 && 'flex-wrap')}>
         <Button
           variant="outline"
-          className="flex-1 px-0"
+          className={button}
           onPress={() => onRotate(15)}
           accessibilityLabel="Turn 15 degrees counter-clockwise"
         >
@@ -68,7 +73,7 @@ export function ItemPanel({
         </Button>
         <Button
           variant="outline"
-          className="flex-1 px-0"
+          className={button}
           onPress={() => onRotate(-15)}
           accessibilityLabel="Turn 15 degrees clockwise"
         >
@@ -77,7 +82,7 @@ export function ItemPanel({
         </Button>
         <Button
           variant="outline"
-          className="flex-1 px-0"
+          className={button}
           onPress={onDuplicate}
           accessibilityLabel="Add another one"
         >
@@ -86,7 +91,7 @@ export function ItemPanel({
         </Button>
         <Button
           variant="outline"
-          className="flex-1 px-0"
+          className={button}
           onPress={onRemove}
           accessibilityLabel="Remove this piece"
         >

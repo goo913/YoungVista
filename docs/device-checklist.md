@@ -337,3 +337,78 @@ everything below needs the real iPhone.
 - [ ] Share card: **Create private link** says "Private link created" and opens the share sheet;
       **Update shared copy** says "Shared copy updated"; **Turn off link** says "Link turned off".
 - [ ] Furniture screen and room editor: the top right still says "Saving…", then "Saved".
+
+## Landscape camera screens
+
+Phone: the owner's **iPhone 15** only. The camera screens (scan, **See it in your room**, **Place
+freely**) now run sideways, either way round, for a wider view; every other screen stays upright.
+This changes the app's native set-up (the turns the app allows, and a relay that tells the AR view
+when the screen turns), so `npm run iphone` makes the iPhone project again: a longer build. The
+Simulator cannot run the camera, and the maths that turning the phone must not change (the dot's
+ray, the marks, the room, the line-up) is covered by unit tests; everything below needs the real
+iPhone. "Left" and "right" below are the two ways to hold it sideways: Dynamic Island on the left,
+then on the right.
+
+### Turning in and out
+
+- [ ] The rooms list, a room page, the furniture screen, the room editor, Settings and sign-in stay
+      upright when the phone is turned sideways.
+- [ ] Holding the phone upright, tap **Scan a room**: the screen opens and turns sideways. Turn the
+      phone to the other side: the screen follows.
+- [ ] Holding the phone sideways (left, then right), open **Scan a room**, **See it in your room**
+      and **Place freely**: each opens the way the phone is held.
+- [ ] Close each one (the X; on the scan also **Discard** and **Open the room page**; a problem
+      card's **Back**): the screen turns back upright, with no half-turned screen and nothing left
+      sideways. The furniture screen after **Place freely** is upright too.
+- [ ] Press the side button while sideways, unlock, and come back to a camera screen; switch to
+      another app and back: still sideways, the camera picture right.
+
+### The camera picture after turning
+
+- [ ] On each camera screen, both ways round: the camera picture is the right way up and not
+      stretched (a door frame stays upright, a round plate stays round), and it fills the screen.
+- [ ] Mid-scan, with a few walls marked, turn the phone from left to right: the picture turns at
+      once; the marked lines on the floor and the faint walls stay on the real walls; the dot still
+      marks the right place (mark one more wall).
+- [ ] Lined up in **See it in your room**, turn the phone from left to right and back: the ghost
+      walls and the furniture stay where they were in the room. No "Line up again" is needed.
+- [ ] Note anything odd in the first moment after a camera screen opens (a picture turned or
+      stretched for an instant is a known limit; one that stays wrong is a bug).
+
+### Layout, both ways round
+
+- [ ] Nothing sits under the Dynamic Island or the screen's rounded corners, on either side; the
+      home bar at the bottom covers nothing.
+- [ ] The middle of the screen stays clear: with two messages showing at the top (say "Move
+      slowly" and a refused mark), they end above the dot; the label under the dot is readable
+      and does not touch the buttons at the right.
+- [ ] Scan: **Mark**, **Undo**, **Skip, use 8 ft** and **Done** are at the bottom right, under the
+      right thumb, with no text cut off; the map is at the bottom left; the bug button (top right)
+      puts the raw data at the left with a smaller map under it.
+- [ ] Ceiling step: the plan at the bottom left, the card at the bottom right. Tap the height:
+      the keyboard opens and the field stays in view; type a height and tap **Next**.
+- [ ] Review: the plan on the left, the details on the right. Type a tape length and a room name:
+      each field scrolls into view above the keyboard. **Save**.
+- [ ] **Room saved** card at the bottom right → **See it in your room**: lined up from the scan;
+      its buttons as below.
+- [ ] Lining up: **Corner here**, then **Undo**, **Other corners**, **Place by hand** and
+      **Cancel** in full rows under it at the right, no text cut off; the small plan at the bottom
+      left.
+- [ ] **Move the room**: the card at the right with **Turn 90°**, **Undo** and **Done** on one
+      line; the plan with the blue dot at the bottom left.
+- [ ] Tap a piece: its card at the right shows the four buttons in two rows and the colours.
+      **Add furniture** opens the furniture list sideways (5 across, the categories next to the
+      title) and the screen does not turn upright; pick one: it appears at the dot.
+- [ ] First scan on a fresh install: the four tips show in two columns, readable, **Got it**
+      reachable. Deny the camera once: the explanation on the left, the buttons on the right.
+
+### Fingers and aim, sideways
+
+- [ ] Drag a piece with one finger and turn it with two: it follows the finger, both ways round.
+      The same for **Move the room**.
+- [ ] **Place by hand** sideways, facing the longest wall: the room appears around the dot with
+      its walls running the way the real ones do, as it does held upright.
+- [ ] During the scan, point the phone straight down at the floor: the blue wedge on the map
+      points the way you face, both ways round.
+- [ ] Scan one room sideways and tape-measure 3 walls, as in Build 1: the errors match an upright
+      scan of the same room.

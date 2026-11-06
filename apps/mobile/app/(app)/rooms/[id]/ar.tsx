@@ -1,16 +1,17 @@
 /**
- * "See it in your room": the saved room's furniture in the camera view. The AR session starts at
- * once (finding the floor takes a moment) while the room and the furniture list load.
+ * "See it in your room": the saved room's furniture in the camera view, in landscape (see
+ * app/(app)/_layout.tsx). The AR session starts at once (finding the floor takes a moment) while
+ * the room and the furniture list load.
  */
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { ArController } from '@/ar/controller';
 import { ArRoom } from '@/components/ar/ar-room';
 import { initialArSceneState } from '@/components/ar/ar-scene';
 import { ArView, type ArViewHandle } from '@/components/ar/ar-view';
+import { CameraScreen } from '@/components/camera-hud';
 import { CameraGate } from '@/components/scan/camera-gate';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,8 +56,7 @@ export default function RoomArScreen() {
               : null;
 
   return (
-    <View className="flex-1 bg-black">
-      <StatusBar style="light" />
+    <CameraScreen>
       {focused ? (
         <CameraGate onClose={close} purpose="ar">
           <ArView ref={view} ar={ar} />
@@ -80,7 +80,7 @@ export default function RoomArScreen() {
           ) : (
             <View className="absolute inset-0 items-center justify-center p-6">
               {problem ? (
-                <Card className="w-full">
+                <Card className="w-full max-w-md">
                   <CardHeader>
                     <CardTitle>{problem.title}</CardTitle>
                     <CardDescription>{problem.text}</CardDescription>
@@ -109,6 +109,6 @@ export default function RoomArScreen() {
           )}
         </CameraGate>
       ) : null}
-    </View>
+    </CameraScreen>
   );
 }

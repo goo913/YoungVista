@@ -8,6 +8,18 @@ import { sendLeftoverEdits } from '@/lib/rooms';
 
 export const unstable_settings = { anchor: 'index' };
 
+/**
+ * The camera screens: full screen, in landscape either way round (a wider view of the room),
+ * following how the phone is held. UIKit turns the screen when one opens and back when it closes;
+ * the screens under it stay upright. Each measures its own safe area (components/camera-hud.tsx).
+ */
+const CAMERA_SCREEN = {
+  headerShown: false,
+  presentation: 'fullScreenModal',
+  gestureEnabled: false,
+  orientation: 'landscape',
+} as const;
+
 export default function AppRoutes() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
@@ -36,7 +48,8 @@ export default function AppRoutes() {
   return (
     // Short confirmations (lib/toast.ts) show over every screen of the stack.
     <View style={{ flex: 1 }}>
-      <Stack>
+      {/* Upright unless a screen says otherwise (a screen that says nothing turns freely). */}
+      <Stack screenOptions={{ orientation: 'portrait_up' }}>
         <Stack.Screen name="index" options={{ title: 'Your rooms' }} />
         <Stack.Screen name="rooms/[id]/index" options={{ title: 'Room' }} />
         <Stack.Screen
@@ -49,18 +62,9 @@ export default function AppRoutes() {
         />
         <Stack.Screen name="settings" options={{ title: 'Settings' }} />
         <Stack.Screen name="credits" options={{ title: '3D model credits' }} />
-        <Stack.Screen
-          name="scan"
-          options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
-        />
-        <Stack.Screen
-          name="rooms/[id]/ar"
-          options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
-        />
-        <Stack.Screen
-          name="place"
-          options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
-        />
+        <Stack.Screen name="scan" options={CAMERA_SCREEN} />
+        <Stack.Screen name="rooms/[id]/ar" options={CAMERA_SCREEN} />
+        <Stack.Screen name="place" options={CAMERA_SCREEN} />
       </Stack>
       <ToastHost />
     </View>

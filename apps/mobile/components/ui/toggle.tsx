@@ -24,10 +24,11 @@ const toggleVariants = cva(
           }),
         ),
       },
+      // The smaller `sm:` sizes are web-only: on a phone, `sm:` matches only in landscape.
       size: {
-        default: 'h-10 min-w-10 px-2.5 sm:h-9 sm:min-w-9 sm:px-2',
-        sm: 'h-9 min-w-9 px-2 sm:h-8 sm:min-w-8 sm:px-1.5',
-        lg: 'h-11 min-w-11 px-3 sm:h-10 sm:min-w-10 sm:px-2.5',
+        default: cn('h-10 min-w-10 px-2.5', Platform.select({ web: 'sm:h-9 sm:min-w-9 sm:px-2' })),
+        sm: cn('h-9 min-w-9 px-2', Platform.select({ web: 'sm:h-8 sm:min-w-8 sm:px-1.5' })),
+        lg: cn('h-11 min-w-11 px-3', Platform.select({ web: 'sm:h-10 sm:min-w-10 sm:px-2.5' })),
       },
     },
     defaultVariants: {

@@ -49,7 +49,9 @@ function Routes() {
   }, [loading]);
   if (loading) return null;
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    // Every screen says its orientation (one that does not turns freely): upright, except the
+    // camera screens in app/(app)/_layout.tsx.
+    <Stack screenOptions={{ headerShown: false, orientation: 'portrait_up' }}>
       <Stack.Protected guard={user !== null}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>

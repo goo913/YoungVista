@@ -1,8 +1,9 @@
 import { formatLength, type UnitSystem } from '@youngvista/core';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
-import { LuBug, LuCheck, LuCrosshair, LuSkipForward, LuUndo2, LuX } from 'react-icons/lu';
+import { LuCheck, LuCrosshair, LuSkipForward, LuUndo2, LuX } from 'react-icons/lu';
 import type { IconType } from 'react-icons';
+import { useLandscape } from '@/components/camera-hud';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -10,29 +11,6 @@ import { cn } from '@/lib/utils';
 import type { Message } from '@/scan/coaching';
 import type { ScanSnapshot } from '@/scan/controller';
 import { AIM_LABELS, type ScanDerived } from '@/scan/session';
-
-export function TopBar({
-  debug,
-  onClose,
-  onToggleDebug,
-}: {
-  debug: boolean;
-  onClose: () => void;
-  onToggleDebug: () => void;
-}) {
-  return (
-    <View className="flex-row items-center justify-between">
-      <RoundButton icon={LuX} label="Stop scanning" onPress={onClose} />
-      <Text className="text-base font-semibold text-white">Scan a room</Text>
-      <RoundButton
-        icon={LuBug}
-        label={debug ? 'Hide debug overlay' : 'Show debug overlay'}
-        onPress={onToggleDebug}
-        active={debug}
-      />
-    </View>
-  );
-}
 
 /** A round icon button over the camera view. */
 export function RoundButton({
@@ -60,15 +38,25 @@ export function RoundButton({
   );
 }
 
-/** The one thing to do now. */
+/**
+ * The one thing to do now. In landscape the text is a size smaller, so that two messages at the
+ * top still end above the dot in the middle.
+ */
 export function GuidanceBanner({ message }: { message: Message }) {
+  const landscape = useLandscape();
   return (
     <View
-      className="items-center gap-1 rounded-2xl bg-black/60 px-4 py-3"
+      className={cn('items-center gap-1 rounded-2xl bg-black/60 px-4', landscape ? 'py-2' : 'py-3')}
       accessibilityLiveRegion="polite"
     >
-      <Text className="text-center text-base font-semibold text-white">{message.title}</Text>
-      <Text className="text-center text-sm text-white/85">{message.detail}</Text>
+      <Text
+        className={cn('text-center font-semibold text-white', landscape ? 'text-sm' : 'text-base')}
+      >
+        {message.title}
+      </Text>
+      <Text className={cn('text-center text-white/85', landscape ? 'text-xs' : 'text-sm')}>
+        {message.detail}
+      </Text>
     </View>
   );
 }
@@ -82,10 +70,12 @@ export function Notice({
   children: ReactNode;
   onDismiss: () => void;
 }) {
+  const landscape = useLandscape();
   return (
     <View
       className={cn(
-        'flex-row items-start gap-2 rounded-2xl px-4 py-3',
+        'flex-row items-start gap-2 rounded-2xl px-4',
+        landscape ? 'py-2' : 'py-3',
         tone === 'error' ? 'bg-red-600/90' : 'bg-black/70',
       )}
       accessibilityRole="alert"
@@ -114,8 +104,13 @@ export function aimLabel(derived: ScanDerived, units: UnitSystem): string {
   return `${aim.edge === 'floor' ? 'Bottom edge' : 'Top edge'} · ${formatLength(aim.distance, units)}`;
 }
 
-/** The dot in the middle of the screen, and what tapping Mark would mark there. */
+/**
+ * The dot in the middle of the screen, and what tapping Mark would mark there. It is the middle
+ * of the camera view whichever way the phone is held: the aim is the camera's forward ray
+ * (scan/geometry.ts `rayFromCamera`), which turning the phone in the hand does not move.
+ */
 export function Reticle({ derived, units }: { derived: ScanDerived; units: UnitSystem }) {
+  const landscape = useLandscape();
   if (derived.step === 'floor') {
     return (
       <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
@@ -125,8 +120,13 @@ export function Reticle({ derived, units }: { derived: ScanDerived; units: UnitS
   }
   const ok = derived.aim.ok;
   // Short level lines either side of the ring: laying them along the edge where the wall meets
-  // the floor or the ceiling puts the dot exactly on it.
-  const bar = cn('h-0.5 w-10 rounded-full', ok ? 'bg-white/80' : 'bg-amber-400/80');
+  // the floor or the ceiling puts the dot exactly on it. Longer in landscape, where the view is
+  // wide: easier to lay along the edge.
+  const bar = cn(
+    'h-0.5 rounded-full',
+    landscape ? 'w-16' : 'w-10',
+    ok ? 'bg-white/80' : 'bg-amber-400/80',
+  );
   return (
     <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
       <View className="flex-row items-center gap-1.5">
@@ -141,9 +141,12 @@ export function Reticle({ derived, units }: { derived: ScanDerived; units: UnitS
         </View>
         <View className={bar} />
       </View>
-      {/* Below the dot, so it never covers what is being aimed at. */}
-      <View className="absolute top-1/2 mt-6 rounded-full bg-black/60 px-3 py-1">
-        <Text className={cn('text-xs font-medium', ok ? 'text-white' : 'text-amber-300')}>
+      {/* Below the dot, so it never covers what is being aimed at; narrow enough to stay clear
+          of the controls at the side in landscape (a long label wraps). */}
+      <View className="absolute top-1/2 mt-6 max-w-[260px] rounded-full bg-black/60 px-3 py-1">
+        <Text
+          className={cn('text-center text-xs font-medium', ok ? 'text-white' : 'text-amber-300')}
+        >
           {aimLabel(derived, units)}
         </Text>
       </View>
@@ -192,10 +195,14 @@ export function ScanControls({
   onSkipCeiling: () => void;
   onDone: () => void;
 }) {
+  const landscape = useLandscape();
   const { state, derived } = snapshot;
   const step = derived.step;
+  // Upright: Undo and Skip or Done side by side under Mark. Landscape (a narrow column at the
+  // right): side by side when they fit, else "Skip, use 8 ft" on a row of its own.
+  const each = landscape ? 'grow' : 'flex-1';
   return (
-    <View className="flex-1 gap-2">
+    <View className={cn('gap-2', !landscape && 'flex-1')}>
       <Text className="text-xs text-white/85">{progressText(derived)}</Text>
       <Button
         size="lg"
@@ -207,11 +214,11 @@ export function ScanControls({
         <Icon as={LuCrosshair} size={18} />
         <Text>{MARK_TEXT[step]}</Text>
       </Button>
-      <View className="flex-row gap-2">
+      <View className={cn('flex-row gap-2', landscape && 'flex-wrap')}>
         {state.history.length > 0 ? (
           <Button
             variant="outline"
-            className="flex-1 border-white/40 bg-black/40"
+            className={cn(each, 'border-white/40 bg-black/40')}
             onPress={onUndo}
             accessibilityLabel="Undo the last mark"
           >
@@ -222,7 +229,7 @@ export function ScanControls({
         {step === 'ceiling' ? (
           <Button
             variant="secondary"
-            className="flex-1"
+            className={each}
             onPress={onSkipCeiling}
             accessibilityLabel="Skip measuring the ceiling and use 8 feet"
           >
@@ -231,7 +238,7 @@ export function ScanControls({
           </Button>
         ) : null}
         {step === 'walls' ? (
-          <Button variant="secondary" className="flex-1" onPress={onDone}>
+          <Button variant="secondary" className={each} onPress={onDone}>
             <Icon as={LuCheck} size={16} />
             <Text>Done</Text>
           </Button>

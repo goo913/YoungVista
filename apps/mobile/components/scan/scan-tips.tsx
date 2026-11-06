@@ -11,6 +11,7 @@ import { Modal, ScrollView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LuArrowUpToLine, LuBrickWall, LuCrosshair, LuLightbulb, LuX } from 'react-icons/lu';
 import type { IconType } from 'react-icons';
+import { useLandscape } from '@/components/camera-hud';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -21,6 +22,7 @@ import {
   tipsSeenText,
   type ScanTipId,
 } from '@/lib/scan-tips';
+import { cn } from '@/lib/utils';
 
 const TIP_ICONS: Record<ScanTipId, IconType> = {
   light: LuLightbulb,
@@ -29,14 +31,17 @@ const TIP_ICONS: Record<ScanTipId, IconType> = {
   top: LuArrowUpToLine,
 };
 
-/** The tips, one under the other. */
-export function ScanTipsList() {
+/** The tips, one under the other, or two side by side (in rows, read left to right). */
+export function ScanTipsList({ columns = 1 }: { columns?: 1 | 2 }) {
   return (
-    <View className="gap-4">
+    <View className={cn('gap-4', columns === 2 && 'flex-row flex-wrap gap-x-0')}>
       {SCAN_TIPS.map((tip, i) => (
         <View
           key={tip.id}
-          className="flex-row items-start gap-3"
+          className={cn(
+            'flex-row items-start gap-3',
+            columns === 2 && (i % 2 === 0 ? 'w-1/2 pr-3' : 'w-1/2 pl-3'),
+          )}
           accessible
           accessibilityLabel={`Tip ${i + 1}: ${tip.title}. ${tip.detail}`}
         >
@@ -53,9 +58,13 @@ export function ScanTipsList() {
   );
 }
 
-/** Over the scan screen before this phone's first scan; "Got it" puts it away for good. */
+/**
+ * Over the scan screen before this phone's first scan; "Got it" puts it away for good. In
+ * landscape (the scan's way) the tips stand in two columns, so they fit without scrolling.
+ */
 export function ScanTips() {
   const insets = useSafeAreaInsets();
+  const landscape = useLandscape();
   // undefined while reading the flag, then the stored value (null: never seen).
   const [stored, setStored] = useState<string | null | undefined>(undefined);
   const [closed, setClosed] = useState(false);
@@ -82,18 +91,36 @@ export function ScanTips() {
 
   return (
     <View
-      className="absolute inset-0 justify-end bg-black/60 px-3"
-      style={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }}
+      className={cn(
+        'absolute inset-0 bg-black/60',
+        landscape ? 'items-center justify-center' : 'justify-end px-3',
+      )}
+      style={
+        landscape
+          ? {
+              paddingTop: insets.top + 12,
+              paddingBottom: insets.bottom + 12,
+              paddingLeft: insets.left + 12,
+              paddingRight: insets.right + 12,
+            }
+          : { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }
+      }
     >
-      <View className="bg-background max-h-full rounded-2xl" accessibilityViewIsModal>
-        <ScrollView contentContainerClassName="gap-5 p-5" bounces={false}>
+      <View
+        className={cn('bg-background max-h-full rounded-2xl', landscape && 'w-full max-w-2xl')}
+        accessibilityViewIsModal
+      >
+        <ScrollView
+          contentContainerClassName={landscape ? 'gap-4 p-4' : 'gap-5 p-5'}
+          bounces={false}
+        >
           <View className="gap-1">
             <Text className="text-lg font-semibold" role="heading">
               Before you scan
             </Text>
             <Text className="text-muted-foreground text-sm">Four tips for a good floor plan.</Text>
           </View>
-          <ScanTipsList />
+          <ScanTipsList columns={landscape ? 2 : 1} />
           <View className="gap-2">
             <Button size="lg" onPress={close}>
               <Text>Got it</Text>

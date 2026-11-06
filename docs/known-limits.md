@@ -34,6 +34,26 @@ it is planned for after the demo (see "After the demo" in [build.md](../build.md
   phones on Android 16 have known camera problems with the AR library (see decisions.md).
 - The iPhone Simulator cannot run the app at all; an Android emulator runs everything except AR.
 
+## Landscape camera screens
+
+- The camera screens (scan, See it in your room, Place freely) run sideways only, either way
+  round; every other screen is upright only. Nothing turns upside down. The scan's ceiling step,
+  review and saved card stay sideways too: the AR session runs under them, and turning the screen
+  would disturb it.
+- No wider camera: ARKit's world tracking always uses the iPhone's 1× wide camera, never the 0.5×
+  ultra wide (Apple, June 2026: "not configurable"). Holding the phone sideways is what shows more
+  of the room across.
+- A camera screen slides up upright and then turns, and on closing slides away and then the app
+  turns back upright: how iPhones show a sideways screen over upright ones.
+- Opening the app with the phone held sideways can show the launch screen sideways for a moment,
+  until the first screen turns it upright.
+- The AR library (ViroReact 3.0.3) turns its camera picture only when iOS sends an old "the screen
+  turned" notice, which iOS 27 no longer sends to apps like this one; the app sends it itself
+  (plugins/with-scene-lifecycle.js). Right as a camera screen opens, until the screen has finished
+  turning, the picture can be drawn the old way round for an instant. Checked on the iPhone
+  Simulator (no camera there); the device checklist covers the real iPhone.
+- On Android the same screens should turn the same way, but nobody has tried it there yet.
+
 ## Final pictures
 
 - A picture is the 3D view exactly as it is on screen, at the view's own pixel size (about

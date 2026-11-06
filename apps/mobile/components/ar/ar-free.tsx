@@ -6,10 +6,10 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ArController } from '@/ar/controller';
 import { freeRoom } from '@/ar/free-room';
 import { scanLineUp } from '@/ar/pose';
+import { CameraHud, HUD_RAIL } from '@/components/camera-hud';
 import { FurniturePicker } from '@/components/furnish/furniture-picker';
 import { noticeText, noticeTone } from '@/furnish/describe';
 import { useDesign } from '@/furnish/use-design';
@@ -17,7 +17,7 @@ import type { CatalogIndex } from '@/lib/catalog-data';
 import type { Store } from '@/lib/store';
 import { useUnits } from '@/lib/units';
 import { ArFurnitureCard } from './ar-furniture-card';
-import { aimLabel, ArBanner, ArReticle, ArTopBar, floorMessage } from './ar-hud';
+import { aimLabel, ArBanner, ArReticle, CloseButton, floorMessage } from './ar-hud';
 import type { ArSceneState } from './ar-scene';
 import type { ArViewHandle } from './ar-view';
 import { useArFurniture } from './use-ar-furniture';
@@ -39,7 +39,6 @@ export function ArFree({
   view: React.RefObject<ArViewHandle | null>;
   onClose: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const [units] = useUnits();
   const { derived } = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   const design = useDesign(FREE_ROOM, catalog, NO_DESIGN);
@@ -87,34 +86,33 @@ export function ArFree({
         <View style={StyleSheet.absoluteFill} collapsable={false} />
       </GestureDetector>
       {!selectedId ? <ArReticle ok={derived.aim.ok} label={aimLabel(derived.aim, units)} /> : null}
-      <View
-        className="absolute inset-0"
-        pointerEvents="box-none"
-        style={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }}
-      >
-        <View className="gap-3 px-4" pointerEvents="box-none">
-          <ArTopBar title="Place freely" onClose={onClose} />
-          {guidance ? <ArBanner title={guidance.title} detail={guidance.detail} /> : null}
-          {ar.live ? <ArBanner tone="error" title={ar.live} /> : null}
-          {!ar.live && error ? (
-            <ArBanner tone="error" title={error} onDismiss={() => setError(null)} />
-          ) : null}
-          {!ar.live && !error && notice ? (
-            <ArBanner
-              tone={noticeTone(notice)}
-              title={noticeText(notice, ar.nameOf, ar.productName)}
-              action={
-                notice.kind === 'removed'
-                  ? { label: 'Undo', onPress: () => dispatch({ type: 'undo-remove' }) }
-                  : undefined
-              }
-              onDismiss={() => dispatch({ type: 'dismiss-notice' })}
-            />
-          ) : null}
-        </View>
-        <View className="flex-1" pointerEvents="box-none" />
-        <View className="px-4" pointerEvents="box-none">
-          {found ? (
+      <CameraHud
+        close={<CloseButton onClose={onClose} />}
+        title="Place freely"
+        messages={
+          <>
+            {guidance ? <ArBanner title={guidance.title} detail={guidance.detail} /> : null}
+            {ar.live ? <ArBanner tone="error" title={ar.live} /> : null}
+            {!ar.live && error ? (
+              <ArBanner tone="error" title={error} onDismiss={() => setError(null)} />
+            ) : null}
+            {!ar.live && !error && notice ? (
+              <ArBanner
+                tone={noticeTone(notice)}
+                title={noticeText(notice, ar.nameOf, ar.productName)}
+                action={
+                  notice.kind === 'removed'
+                    ? { label: 'Undo', onPress: () => dispatch({ type: 'undo-remove' }) }
+                    : undefined
+                }
+                onDismiss={() => dispatch({ type: 'dismiss-notice' })}
+              />
+            ) : null}
+          </>
+        }
+        controlsWidth={HUD_RAIL.card}
+        controls={
+          found ? (
             <ArFurnitureCard
               ar={ar}
               controller={controller}
@@ -126,15 +124,16 @@ export function ArFree({
               }
               onAddError={setError}
             />
-          ) : null}
-        </View>
-      </View>
+          ) : null
+        }
+      />
       <FurniturePicker
         visible={ar.picking}
         catalog={catalog}
         units={units}
         onClose={ar.closePicker}
         onPick={ar.pick}
+        overCamera
       />
     </>
   );

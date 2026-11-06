@@ -1,15 +1,16 @@
 /**
- * "Place freely": true-size furniture in the camera view, no room needed. Nothing is saved.
+ * "Place freely": true-size furniture in the camera view, no room needed, in landscape (see
+ * app/(app)/_layout.tsx). Nothing is saved.
  */
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIsFocused, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { ArController } from '@/ar/controller';
 import { ArFree } from '@/components/ar/ar-free';
 import { initialArSceneState } from '@/components/ar/ar-scene';
 import { ArView, type ArViewHandle } from '@/components/ar/ar-view';
+import { CameraScreen } from '@/components/camera-hud';
 import { CameraGate } from '@/components/scan/camera-gate';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,8 +35,7 @@ export default function PlaceFreelyScreen() {
   };
 
   return (
-    <View className="flex-1 bg-black">
-      <StatusBar style="light" />
+    <CameraScreen>
       {focused ? (
         <CameraGate onClose={close} purpose="ar">
           <ArView ref={view} ar={ar} />
@@ -50,7 +50,7 @@ export default function PlaceFreelyScreen() {
           ) : (
             <View className="absolute inset-0 items-center justify-center p-6">
               {catalog.status === 'error' ? (
-                <Card className="w-full">
+                <Card className="w-full max-w-md">
                   <CardHeader>
                     <CardTitle>No furniture list</CardTitle>
                     <CardDescription>{catalog.message}</CardDescription>
@@ -74,6 +74,6 @@ export default function PlaceFreelyScreen() {
           )}
         </CameraGate>
       ) : null}
-    </View>
+    </CameraScreen>
   );
 }
