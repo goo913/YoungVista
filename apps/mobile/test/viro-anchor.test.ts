@@ -2,29 +2,40 @@ import { describe, expect, it } from 'vitest';
 import {
   anchorIdOf,
   cameraPoseFromViro,
+  flatVertices,
   lightIntensityFromViro,
   planeFromViroAnchor,
   vec3,
 } from '@/scan/viro-anchor';
-import { floorAnchor, wallAnchor } from './helpers';
+import { floorAnchor, uprightAnchor } from './helpers';
+
+const wall = (id = 'A1') =>
+  uprightAnchor(
+    id,
+    { x: -1, z: -2 },
+    { x: 1, z: -2 },
+    { bottom: 0, top: 2.4, toward: { x: 0, z: 0 } },
+  );
 
 describe('planeFromViroAnchor', () => {
   it('maps a Viro plane anchor to core PlaneAnchor fields', () => {
-    const plane = planeFromViroAnchor({ ...wallAnchor('A1', 1, -2, 0, 3), center: [0.1, 0, 0] });
-    expect(plane).toEqual({
+    const anchor = wall();
+    const plane = planeFromViroAnchor(anchor);
+    expect(plane).toMatchObject({
       id: 'A1',
       alignment: 'Vertical',
-      classification: 'Wall',
+      classification: 'None',
       anchor: {
         id: 'A1',
-        position: [1, 1.2, -2],
-        rotationDeg: [90, 0, 0],
-        center: [0.1, 0, 0],
-        width: 3,
-        height: 2.4,
+        position: [0, 1.2, -2],
+        rotationDeg: anchor.rotation,
+        center: [0, 1.2, -2],
+        width: expect.closeTo(2, 9),
+        height: expect.closeTo(2.4, 9),
       },
-      vertexCount: 0,
     });
+    expect(plane?.vertices).toHaveLength(12);
+    expect(plane?.vertices.slice(0, 3)).toEqual(anchor.vertices[0]);
   });
 
   it('defaults a missing centre to the anchor origin and accepts iPhone alignments', () => {
@@ -35,7 +46,7 @@ describe('planeFromViroAnchor', () => {
   });
 
   it('rejects anything that is not a usable plane', () => {
-    const good = wallAnchor('A1', 0, 0, 0, 1);
+    const good = wall();
     expect(planeFromViroAnchor(null)).toBeNull();
     expect(planeFromViroAnchor('plane')).toBeNull();
     expect(planeFromViroAnchor({ ...good, anchorId: '' })).toBeNull();
@@ -52,6 +63,21 @@ describe('planeFromViroAnchor', () => {
     expect(anchorIdOf({ anchorId: 'X' })).toBe('X');
     expect(anchorIdOf(undefined)).toBeNull();
     expect(anchorIdOf({ anchorId: 3 })).toBeNull();
+  });
+});
+
+describe('flatVertices', () => {
+  it('keeps every vertex of a small polygon and skips bad ones', () => {
+    expect(flatVertices([[1, 0, 2], 'x', [3, 0, 4]])).toEqual([1, 0, 2, 3, 0, 4]);
+    expect(flatVertices(undefined)).toEqual([]);
+  });
+
+  it('thins a big polygon evenly', () => {
+    const many = Array.from({ length: 200 }, (_, i) => [i, 0, 0]);
+    const flat = flatVertices(many, 50);
+    expect(flat).toHaveLength(150);
+    expect(flat[0]).toBe(0);
+    expect(flat[3]).toBe(4);
   });
 });
 

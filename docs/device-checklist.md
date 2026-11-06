@@ -22,36 +22,46 @@ Android phone that supports ARCore (Google Play Services for AR installed).
 ### Scan three rooms on each phone
 
 Rooms: an ordinary rectangular room, a **plain white-walled room**, and an **L-shaped room**.
+Stand near the middle; face each wall when you mark it.
 
 - [ ] The first scan asks for the camera with an explanation. If you deny it, the screen offers
       Settings; allowing it there and coming back starts the scan.
-- [ ] "Looking for the floor…" shows until the floor is found (note how long it takes).
-- [ ] Walls appear on the mini-map as you turn; the red wedges and "Turn left/right…" point to
-      where walls are still missing. Coaching appears when you move fast or the room is dim.
-- [ ] For a wall that is not found, aim the dot at its bottom edge, tap **Mark wall**, then aim
-      at the other end and tap again. The wall appears.
-- [ ] The room closes by itself when the walls go all the way round (or tap **Done**). If it
-      cannot, the reason is clear and scanning continues.
-- [ ] Ceiling height shows 8′ 0″; changing it in feet and inches and in metres works.
-- [ ] Review shows the plan with lengths; name the room and save; the room page opens.
-- [ ] Tape-measure **3 walls per room** and record the error:
+- [ ] "Point at the floor" shows until the floor is found (note how long it takes). Pointing
+      only at a bed or a desk says "That looks like furniture, point at the floor".
+- [ ] First wall: aim the dot where a wall meets the floor, tap **Mark**; then further along the
+      same wall (50 cm or more) and tap again. A dot appears in the room at each mark.
+- [ ] Ceiling: aim where that wall meets the ceiling and tap **Mark the top** (the label under
+      the dot shows the height), or tap **Skip, use 8 ft**.
+- [ ] Every other wall: one mark at its bottom edge, or at its top edge where furniture is in the
+      way. The label under the dot says which edge and how far. Near a corner it says "Face the
+      wall". Each wall appears as a line on the floor, a line at the ceiling and a faint wall.
+- [ ] A wrong mark (the side of the bed, say) turns walls red and the room does not close;
+      **Undo** fixes it.
+- [ ] Once every wall fits, the room closes by itself and shows its size (`10′ 3″ × 11′ 6″` for
+      a rectangle). Change the ceiling if needed, tap Next.
+- [ ] Review: the plan matches the room. Measure one wall with a tape, pick it under "Measured a
+      wall with a tape?", type the length and tap Rescale. Save; the room page opens.
+- [ ] Tape-measure **3 walls per room** (before rescaling) and record the error:
 
 | Room | Phone | Wall | Tape | App | Error (cm) |
 | ---- | ----- | ---- | ---- | --- | ---------- |
 |      |       |      |      |     |            |
 
-### Check the wall maths with the debug overlay
+### Check the AR maths with the debug overlay
 
-Tap the bug button on the scan screen. Blue patches are the planes as ViroReact places them; for
-each wall the red (YXZ), green (ZYX) and blue (XYZ) lines are where the app puts that wall on the
-floor with each Euler order.
+Tap the bug button on the scan screen. Outlines are the planes as ViroReact places them (blue
+upright, yellow level); under each upright plane the green (ZYX, Viro's own order), red (YXZ)
+and blue (XYZ) lines are where the app puts that plane on the floor.
 
-- [ ] Facing each wall in turn (at least 4 headings), note which coloured line runs along the
-      bottom of the real wall and the blue patch. Expected: red and green agree and are right.
-- [ ] If every line is turned 90° from its wall, try the axis buttons ("x", "z") and note which
-      one fixes it.
+- [ ] At a door or a textured wall, the green line runs along the bottom of the blue outline and
+      of the real wall.
+- [ ] In the planes list, "gap" stays at a few centimetres on the iPhone with "world" picked
+      (Android: "local"), not metres. If not, try the other choice and note which one is right.
+- [ ] Turn on "Use detected walls (test)" after marking the first wall: real walls found by the
+      phone turn blue and count; a desk or bed side in front of a marked wall does not.
 - [ ] Note the light estimate in a bright and in a dim room (the "Add more light" limit is 150).
-- [ ] Tap "Share the raw data" once per phone and attach it to the notes.
+- [ ] Every scan (saved, closed or failed) adds one document to `scanLogs` in Firestore for the
+      team; nothing to do on the phone.
 
 ### Website
 

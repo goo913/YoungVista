@@ -1,28 +1,30 @@
 /**
- * Data for the scan's debug overlay, so the team can check the wall maths on real phones.
+ * Data for the scan's debug overlay, so the team can check the AR maths on real phones.
  *
- * ViroReact sends each anchor's rotation as Euler angles but does not say in which order they
- * apply. For wall planes core's 'YXZ' and 'ZYX' give the same line and 'XYZ' a different one.
- * The overlay draws the line from each order on the floor, next to the plane as Viro itself
- * places it, so whoever holds the phone can see which order matches the real wall.
+ * Viro's anchor rotation is R = Rz·Ry·Rx (core's 'ZYX', read from ViroCore's source; see
+ * viro-anchor.ts). The overlay still draws, for each wall plane, the floor line each of three
+ * Euler orders gives, so whoever holds the phone can see that the green (ZYX) line runs along the
+ * bottom of the real wall. `centerGap` checks the other finding: the middle of a plane's vertices
+ * should match its centre as Viro reports it (world space on iPhone, the origin on Android).
  */
+import type { EulerOrder, Vec2, Vec3, Vec3Tuple } from '@youngvista/core';
 import {
-  describePlane,
-  type EulerOrder,
-  type PlaneRejection,
-  type Vec3,
-  type Vec3Tuple,
-  type WallObservation,
-} from '@youngvista/core';
-import type { ScanState } from './session';
+  planeExtentCorners,
+  planeTiltDeg,
+  planeWallLine,
+  planeWorldCenter,
+  planeWorldVertices,
+} from './planes';
+import type { PlaneWallVerdict, ScanDerived, ScanState } from './session';
 import type { PlaneAlignment } from './viro-anchor';
 
-export const DEBUG_EULER_ORDERS: readonly EulerOrder[] = ['YXZ', 'ZYX', 'XYZ'];
+/** ZYX first: it is Viro's own. */
+export const DEBUG_EULER_ORDERS: readonly EulerOrder[] = ['ZYX', 'YXZ', 'XYZ'];
 
 /** Line colours per order, used in AR and in the list. */
 export const EULER_ORDER_COLORS: Record<EulerOrder, string> = {
-  YXZ: '#ef4444',
   ZYX: '#22c55e',
+  YXZ: '#ef4444',
   XYZ: '#3b82f6',
   XZY: '#a855f7',
   YZX: '#f59e0b',
@@ -31,9 +33,8 @@ export const EULER_ORDER_COLORS: Record<EulerOrder, string> = {
 
 export interface DebugWallLine {
   order: EulerOrder;
-  observation: WallObservation | null;
-  rejected?: PlaneRejection;
-  /** 0 for a perfectly vertical plane. */
+  /** Where the plane meets the floor with this order, or null when it is not upright with it. */
+  line: { a: Vec2; b: Vec2 } | null;
   tiltDeg: number;
 }
 
@@ -45,37 +46,56 @@ export interface PlaneDebugRow {
   classification: string | null;
   position: Vec3Tuple;
   rotationDeg: Vec3Tuple;
-  localCenter: Vec3Tuple;
+  /** `center` as Viro sent it. */
+  center: Vec3Tuple;
   width: number;
   height: number;
-  /** Centre of the plane in the world, with the scan's current Euler order. */
+  /** Centre in the world, with the scan's Euler order and centre convention. */
   worldCenter: Vec3;
   vertexCount: number;
+  /** Distance from the middle of the vertices to `worldCenter` (m); small when the convention is right. */
+  centerGap: number | null;
+  /** The plane's outline in the world (its vertices, or its extent rectangle). */
+  outline: Vec3[];
   /** One line per order in DEBUG_EULER_ORDERS (vertical planes only). */
   lines: DebugWallLine[];
+  /** What "Use detected walls (test)" made of it. */
+  verdict: PlaneWallVerdict | null;
 }
 
 export const shortId = (id: string): string => (id.length > 6 ? id.slice(-6) : id);
 
-export function planeDebugRows(state: ScanState, floorY: number | null): PlaneDebugRow[] {
-  const y = floorY ?? 0;
+export function planeDebugRows(state: ScanState, derived: ScanDerived): PlaneDebugRow[] {
+  const { eulerOrder, centerSpace } = state.options;
   return Object.values(state.planes)
     .sort((a, b) => a.id.localeCompare(b.id))
     .map((plane) => {
-      const current = describePlane(plane.anchor, y, { eulerOrder: state.options.eulerOrder });
+      const vertices = planeWorldVertices(plane, eulerOrder);
+      const worldCenter = planeWorldCenter(plane, eulerOrder, centerSpace);
+      let centerGap: number | null = null;
+      if (vertices.length >= 3) {
+        const m = vertices.reduce((s, v) => ({ x: s.x + v.x, y: s.y + v.y, z: s.z + v.z }), {
+          x: 0,
+          y: 0,
+          z: 0,
+        });
+        const n = vertices.length;
+        centerGap = Math.hypot(
+          m.x / n - worldCenter.x,
+          m.y / n - worldCenter.y,
+          m.z / n - worldCenter.z,
+        );
+      }
       const lines =
         plane.alignment === 'Vertical'
           ? DEBUG_EULER_ORDERS.map((order): DebugWallLine => {
-              const d = describePlane(plane.anchor, y, {
-                eulerOrder: order,
-                horizontalAxis: state.options.horizontalAxis,
-                id: plane.id,
-              });
+              const l = planeWallLine(plane, order, centerSpace);
+              const at = (s: number) =>
+                l ? { x: l.point.x + l.direction.x * s, z: l.point.z + l.direction.z * s } : null;
               return {
                 order,
-                observation: d.observation,
-                tiltDeg: d.tiltDeg,
-                ...(d.rejected ? { rejected: d.rejected } : {}),
+                line: l ? { a: at(l.from)!, b: at(l.to)! } : null,
+                tiltDeg: planeTiltDeg(plane, order),
               };
             })
           : [];
@@ -86,12 +106,16 @@ export function planeDebugRows(state: ScanState, floorY: number | null): PlaneDe
         classification: plane.classification,
         position: plane.anchor.position,
         rotationDeg: plane.anchor.rotationDeg,
-        localCenter: plane.anchor.center,
+        center: plane.anchor.center,
         width: plane.anchor.width,
         height: plane.anchor.height,
-        worldCenter: current.center,
-        vertexCount: plane.vertexCount,
+        worldCenter,
+        vertexCount: plane.vertices.length / 3,
+        centerGap,
+        outline:
+          vertices.length >= 3 ? vertices : planeExtentCorners(plane, eulerOrder, centerSpace),
         lines,
+        verdict: derived.planeWalls.find((c) => c.planeId === plane.id)?.verdict ?? null,
       };
     });
 }
@@ -109,7 +133,7 @@ export const formatVec = (v: Vec3Tuple | Vec3, digits = 2): string => {
 };
 
 /** `(1.20, -2.00) → (3.10, -2.00)` */
-export function formatLine(o: WallObservation | null): string {
-  if (!o) return '—';
-  return `(${fixed(o.a.x)}, ${fixed(o.a.z)}) → (${fixed(o.b.x)}, ${fixed(o.b.z)})`;
+export function formatLine(l: { a: Vec2; b: Vec2 } | null): string {
+  if (!l) return '—';
+  return `(${fixed(l.a.x)}, ${fixed(l.a.z)}) → (${fixed(l.b.x)}, ${fixed(l.b.z)})`;
 }

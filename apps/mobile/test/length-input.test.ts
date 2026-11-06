@@ -4,6 +4,7 @@ import {
   formatLengthInput,
   parseCeilingHeightInput,
   parseOpeningSizeInput,
+  parseTapeLengthInput,
   parseWallLengthInput,
 } from '@/lib/length-input';
 
@@ -90,5 +91,23 @@ describe('parseOpeningSizeInput', () => {
     expect(sill.ok && sill.meters).toBe(0);
     const small = parseOpeningSizeInput('10 cm', 'metric', 'height');
     expect(!small.ok && small.message).toBe('That is too short. Type at least 0.20 m.');
+  });
+});
+
+describe('parseTapeLengthInput', () => {
+  it('gives the scale that makes the scanned wall match the tape', () => {
+    const r = parseTapeLengthInput(`10' 4"`, 'imperial', 3.1);
+    expect(r.ok && r.meters).toBeCloseTo(124 * METERS_PER_INCH, 9);
+    expect(r.ok && r.factor).toBeCloseTo((124 * METERS_PER_INCH) / 3.1, 9);
+    expect(parseTapeLengthInput('3.05', 'metric', 3).ok).toBe(true);
+  });
+
+  it('refuses a length far from the scan: probably another wall', () => {
+    const r = parseTapeLengthInput('4 m', 'metric', 3);
+    expect(r.ok ? null : r.message).toBe(
+      'That is 33% off the scan (3.00 m). Check that you picked the wall you measured.',
+    );
+    expect(parseTapeLengthInput('', 'imperial', 3)).toMatchObject({ ok: false });
+    expect(parseTapeLengthInput('long', 'imperial', 3)).toMatchObject({ ok: false });
   });
 });

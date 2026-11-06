@@ -1,9 +1,10 @@
-import type { EulerOrder } from '@youngvista/core';
-import { Platform, ScrollView, Share, View } from 'react-native';
+import { axesAngle, type EulerOrder } from '@youngvista/core';
+import { ScrollView, Share, View } from 'react-native';
 import { LuShare } from 'react-icons/lu';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { Toggle } from '@/components/ui/toggle';
 import { trackingReasonName, trackingStateName } from '@/scan/coaching';
 import type { ScanController, ScanSnapshot } from '@/scan/controller';
 import {
@@ -13,14 +14,16 @@ import {
   formatVec,
   planeDebugRows,
 } from '@/scan/debug';
-import type { HorizontalAxis } from '@/scan/session';
+import { deviceInfo } from '@/scan/log-writer';
+import type { CenterSpace } from '@/scan/planes';
+import { buildScanLog } from '@/scan/scan-log';
 
-const AXES: HorizontalAxis[] = ['auto', 'x', 'z'];
+const CENTER_SPACES: CenterSpace[] = ['world', 'local'];
 
 /**
- * The raw AR data behind the scan, for checking the wall maths on real phones: tracking, light,
- * floor, camera, and every plane with the wall line each Euler order gives. The order and axis
- * pickers change which line the scan uses; the coloured lines in AR match the list.
+ * The raw AR data behind the scan, for checking it on real phones: tracking, light, floor,
+ * camera, marks, and every plane with the floor line each Euler order gives. "Use detected walls
+ * (test)" lets planes that line up with the room join the marked walls.
  */
 export function DebugPanel({
   snapshot,
@@ -30,23 +33,13 @@ export function DebugPanel({
   controller: ScanController;
 }) {
   const { state, derived } = snapshot;
-  const rows = planeDebugRows(state, derived.floor?.y ?? null);
+  const rows = planeDebugRows(state, derived);
   const camera = state.camera;
+  const floor = derived.floor;
 
   const share = () => {
-    const data = {
-      platform: Platform.OS,
-      options: state.options,
-      tracking: state.tracking,
-      lightIntensity: state.lightIntensity,
-      floor: derived.floor,
-      camera,
-      planes: Object.values(state.planes),
-      tapWalls: state.tapWalls,
-      observations: derived.observations,
-      coverage: derived.coverage,
-    };
-    void Share.share({ message: JSON.stringify(data, null, 1) });
+    const doc = buildScanLog(controller.record(), '', deviceInfo(), { outcome: 'abandoned' });
+    void Share.share({ message: JSON.stringify(doc) });
   };
 
   return (
@@ -61,9 +54,10 @@ export function DebugPanel({
         <Mono>light estimate: {state.lightIntensity?.toFixed(0) ?? 'none'}</Mono>
         <Mono>
           floor y:{' '}
-          {derived.floor
-            ? `${derived.floor.y.toFixed(3)} (plane …${derived.floor.planeId.slice(-6)})`
-            : 'not found'}
+          {floor
+            ? `${floor.y.toFixed(3)} (plane …${floor.planeId?.slice(-6) ?? 'gone'}${floor.classification ? `, ${floor.classification}` : ''})`
+            : derived.floorStatus}
+          {camera && floor ? ` · phone ${(camera.position[1] - floor.y).toFixed(2)} m up` : ''}
         </Mono>
         <Mono>camera: {camera ? formatVec(camera.position) : 'none'}</Mono>
         <Mono>
@@ -71,25 +65,54 @@ export function DebugPanel({
           {derived.headingDeg?.toFixed(0) ?? '—'}°
         </Mono>
         <Mono>
-          planes: {derived.planeCount} ({derived.verticalPlaneCount} vertical), walls merged:{' '}
-          {derived.walls.length}, coverage:{' '}
-          {derived.coverage ? `${Math.round(derived.coverage.fraction * 100)}%` : '—'}
-          {derived.coverage?.closed ? ' (closed)' : ''}
+          step: {derived.step} · marks: {state.marks.length} · walls:{' '}
+          {derived.grouped?.walls.length ?? 0}
+          {derived.axes ? ` · axes ${((axesAngle(derived.axes) * 180) / Math.PI).toFixed(1)}°` : ''}
+        </Mono>
+        <Mono>
+          ceiling:{' '}
+          {derived.ceiling
+            ? `${derived.ceiling.height.toFixed(3)} m (${derived.ceiling.source})`
+            : 'not yet'}
+          {derived.room
+            ? ` · room: ${derived.room.ok ? 'closed' : `${derived.room.error}${derived.room.conflicting.length ? ` [${derived.room.conflicting.join(', ')}]` : ''}`}`
+            : ''}
+        </Mono>
+        <Mono>
+          planes: {derived.planeCount} ({derived.verticalPlaneCount} upright)
         </Mono>
       </Section>
 
-      <Section title="Euler order used for walls">
+      <Section title="Detected walls">
+        <Toggle
+          pressed={state.options.useDetectedWalls}
+          onPressedChange={(useDetectedWalls) => controller.setOptions({ useDetectedWalls })}
+          variant="outline"
+          className="self-start border-white/40"
+          accessibilityLabel="Use detected walls (test)"
+        >
+          <Text className="text-white">
+            {state.options.useDetectedWalls ? 'On: ' : 'Off: '}Use detected walls (test)
+          </Text>
+        </Toggle>
+        <Text className="text-xs text-white/70">
+          Once the first wall is marked, upright planes within 7° of the room's directions, at least
+          60 cm wide and not against a mark, become walls (blue).
+        </Text>
+      </Section>
+
+      <Section title="Euler order (Viro's is ZYX)">
         <Choice
           options={DEBUG_EULER_ORDERS}
           value={state.options.eulerOrder}
           onChange={(eulerOrder: EulerOrder) => controller.setOptions({ eulerOrder })}
           color={(o) => EULER_ORDER_COLORS[o]}
         />
-        <Text className="text-xs text-white/70">Along-floor axis of a wall plane</Text>
+        <Text className="text-xs text-white/70">Plane centre as sent by Viro</Text>
         <Choice
-          options={AXES}
-          value={state.options.horizontalAxis}
-          onChange={(horizontalAxis: HorizontalAxis) => controller.setOptions({ horizontalAxis })}
+          options={CENTER_SPACES}
+          value={state.options.centerSpace}
+          onChange={(centerSpace: CenterSpace) => controller.setOptions({ centerSpace })}
         />
       </Section>
 
@@ -102,6 +125,7 @@ export function DebugPanel({
               {row.classification && row.classification !== 'None'
                 ? ` · ${row.classification}`
                 : ''}
+              {row.verdict ? ` · ${row.verdict}` : ''}
             </Mono>
             <Mono>
               size {row.width.toFixed(2)} × {row.height.toFixed(2)} m · centre{' '}
@@ -111,7 +135,8 @@ export function DebugPanel({
               pos {formatVec(row.position)} rot {formatVec(row.rotationDeg, 1)}
             </Mono>
             <Mono>
-              local centre {formatVec(row.localCenter)} · {row.vertexCount} vertices
+              centre sent {formatVec(row.center)} · {row.vertexCount} vertices
+              {row.centerGap !== null ? ` · gap ${(row.centerGap * 100).toFixed(0)} cm` : ''}
             </Mono>
             {row.lines.map((line) => (
               <Text
@@ -119,9 +144,7 @@ export function DebugPanel({
                 className="font-mono text-[11px]"
                 style={{ color: EULER_ORDER_COLORS[line.order] }}
               >
-                {line.order}:{' '}
-                {line.observation ? formatLine(line.observation) : `no wall (${line.rejected})`}
-                {` tilt ${line.tiltDeg.toFixed(0)}°`}
+                {line.order}: {formatLine(line.line)} tilt {line.tiltDeg.toFixed(0)}°
               </Text>
             ))}
           </View>

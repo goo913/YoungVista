@@ -111,3 +111,37 @@ export function parseOpeningSizeInput(
     example: { imperial: `3' 0" (or 0.9 m)`, metric: `0.9 m (or 3' 0")` },
   });
 }
+
+/**
+ * A tape-measured wall may be at most this much longer or shorter than the scan says: the scan's
+ * scale is off by a few percent at most, so a bigger difference means another wall was measured.
+ */
+export const MAX_SCALE_CHANGE = 0.2;
+
+export type TapeLengthResult =
+  { ok: true; meters: number; factor: number } | { ok: false; message: string };
+
+/**
+ * Reads the length of a wall the user measured with a tape after a scan, and the scale correction
+ * it gives (review screen).
+ */
+export function parseTapeLengthInput(
+  text: string,
+  units: UnitSystem,
+  scanned: number,
+): TapeLengthResult {
+  const example = units === 'metric' ? '3.12 m' : `10' 3"`;
+  if (!text.trim()) return { ok: false, message: `Type the length you measured, like ${example}.` };
+  const meters = parseLength(text, units);
+  if (meters === null || !Number.isFinite(meters) || meters <= 0) {
+    return { ok: false, message: `That is not a length. Try ${example}.` };
+  }
+  const factor = meters / scanned;
+  if (!(Math.abs(factor - 1) <= MAX_SCALE_CHANGE)) {
+    return {
+      ok: false,
+      message: `That is ${Math.round(Math.abs(factor - 1) * 100)}% off the scan (${formatLength(scanned, units)}). Check that you picked the wall you measured.`,
+    };
+  }
+  return { ok: true, meters, factor };
+}

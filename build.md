@@ -11,13 +11,13 @@ Four builds, done in order. Each one ends with something the team can try on a p
 
 ## How scanning works (no iPhone Pro)
 
-1. Point the phone at the floor and move it slowly. The app finds the floor.
-2. Slowly turn around the room, pointing at each wall. The app finds the walls by itself and draws them on a live map.
-3. If it misses a wall (plain white walls are hard for normal phone cameras), aim the dot at the bottom of that wall and tap twice.
-4. When the walls go all the way around, the app joins them, works out the corners, and asks for the ceiling height (8 ft by default).
-5. Review the top-down plan with lengths. Fix anything by dragging a corner or typing a length.
+1. Point the phone at the floor and move it slowly. The app finds the floor (never a bed or table top).
+2. The first wall: aim the dot where it meets the floor and tap **Mark**, then further along the same wall and tap **Mark** again. This tells the app which way the walls run, so every corner comes out square.
+3. Aim at the top of that wall, where it meets the ceiling, and tap **Mark**. That measures the ceiling height (or skip it: 8 ft).
+4. Turn to each other wall and tap **Mark** once on its bottom edge, or on its top edge when furniture is in the way. Each wall appears in the camera view and on the live map as it is marked.
+5. When the walls go all the way around, the room closes by itself and shows its size. Optionally type one wall's tape-measured length to correct the scale, then review and save. Fix anything later by dragging a corner or typing a length.
 
-The result is a clean model of the room (floor, walls, doors, windows), not a photo-real copy. Walls usually land within about 5-10 cm. A photo-real scan on normal phones needs cloud processing and comes later; iPhone Pro automatic scanning (Apple RoomPlan) also comes later.
+The result is a clean model of the room (floor, walls, doors, windows), not a photo-real copy. In simulation, walls land within about 5 cm. Without LiDAR, a phone can't see plain walls reliably by itself, so walls are marked rather than detected; automatic detection stays a test switch until it is proven on phones. Every scan writes a log (`scanLogs`) for debugging. A photo-real scan on normal phones needs cloud processing and comes later; iPhone Pro automatic scanning (Apple RoomPlan) also comes later.
 
 ---
 

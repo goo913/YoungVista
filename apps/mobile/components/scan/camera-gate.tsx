@@ -96,7 +96,7 @@ export function CameraGate({ children, onClose }: { children: ReactNode; onClose
         <GateMessage
           icon={LuCamera}
           title="Allow the camera"
-          body="YoungVista uses the camera to find the floor and the walls of your room. Nothing is recorded or uploaded; only the floor plan is saved."
+          body="YoungVista uses the camera to find the floor and the walls of your room. No photos or video are kept or uploaded: only the floor plan, and a small technical log of the scan that helps us improve it."
           primary={{ label: 'Allow camera', onPress: () => void ask() }}
           secondary={{ label: 'Not now', onPress: onClose }}
         />

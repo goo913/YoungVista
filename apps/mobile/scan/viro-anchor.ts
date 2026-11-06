@@ -1,17 +1,28 @@
 /**
  * ViroReact 3.x anchor and camera events, mapped to plain data for the scan session.
  *
- * What ViroReact 3.0.3 sends (read from its iOS and Android bridges):
+ * What ViroReact 3.0.3 sends, read from its bridges (node_modules/@reactvision/react-viro:
+ * ios/ViroReact/AR/VRTARUtils.m `createDictionaryFromAnchor`; Android: ReactVision/viro
+ * android/viro_bridge/.../ARUtils.java `mapFromARAnchor`) and from ViroCore (ReactVision/virocore):
  * - Anchors (`onAnchorFound`, `onAnchorUpdated`, `onAnchorRemoved` on ViroARScene) carry
- *   `anchorId`, `type` ('plane' for planes), `position` (world, metres, the anchor transform's
- *   translation), `rotation` (Euler degrees of that transform), `scale`, and for planes `center`
- *   (offset of the plane's extent in the anchor's local space), `width` (extent along local X),
- *   `height` (extent along local Z), `alignment` ('Horizontal', 'HorizontalUpward',
- *   'HorizontalDownward' or 'Vertical'; iPhones only say 'Horizontal'), `classification`
- *   ('Wall', 'Floor', 'Ceiling', ...; often 'None') and `vertices` (boundary, local space).
- * - The camera (`onCameraTransformUpdate`, every frame) carries `position`, `rotation`, `forward`
- *   and `up`, all world space.
- * Which Euler order `rotation` uses is checked on phones with the debug overlay (see debug.ts).
+ *   `anchorId`, `type` ('plane' for planes), `position` (the anchor transform's translation,
+ *   world metres), `rotation` and, for planes, `center`, `width` (extent x), `height` (extent z),
+ *   `alignment` ('Horizontal', 'HorizontalUpward', 'HorizontalDownward' or 'Vertical'; iPhones
+ *   only say 'Horizontal'), `classification` ('Wall', 'Floor', 'Ceiling', 'Table', 'Seat',
+ *   'Door', 'Window', 'None' or 'Unknown') and `vertices` (the boundary polygon).
+ * - `rotation` is `transform.extractRotation(scale).toEuler()` in degrees. ViroCore's
+ *   VROQuaternion::toEuler returns the angles of R = Rz·Ry·Rx (core's Euler order 'ZYX'), the
+ *   same order VROQuaternion::set uses for node rotations.
+ * - `center` differs by platform. iOS: the plane's centre in WORLD space (VROARSessioniOS.cpp
+ *   multiplies ARKit's local centre by the anchor transform before storing it). Android: always
+ *   [0, 0, 0], because the anchor transform is the plane's centre pose (VROARSessionARCore.cpp).
+ * - The anchor's origin always lies on the plane, and `vertices` are in the anchor's own space
+ *   (ARKit plane geometry, ARCore polygon), so `position + R·v` places them in the world.
+ * - Since iOS 16 ARKit no longer turns the anchor to fit the plane: the extent rectangle is turned
+ *   by `planeExtent.rotationOnYAxis`, which Viro does not pass on. So `width` and `height` are
+ *   not tied to the anchor's x and z axes; the plane's normal and its vertices are reliable.
+ * - The camera (`onCameraTransformUpdate`, every frame) carries `position`, `rotation`,
+ *   `forward` and `up`, all world space.
  */
 import type { PlaneAnchor, Vec3Tuple } from '@youngvista/core';
 
@@ -24,6 +35,9 @@ const ALIGNMENTS: ReadonlySet<string> = new Set<PlaneAlignment>([
   'Vertical',
 ]);
 
+/** Boundary vertices kept per plane (ARKit can send a hundred or more). */
+export const MAX_PLANE_VERTICES = 64;
+
 /** A plane anchor in the shape `@youngvista/core` works with, plus what Viro says about it. */
 export interface TrackedPlane {
   id: string;
@@ -34,10 +48,11 @@ export interface TrackedPlane {
     id: string;
     position: Vec3Tuple;
     rotationDeg: Vec3Tuple;
+    /** As Viro sent it: world space on iOS, [0, 0, 0] on Android (see the header). */
     center: Vec3Tuple;
   };
-  /** Number of boundary vertices Viro sent (debug only). */
-  vertexCount: number;
+  /** Boundary vertices in the anchor's space, flat `[x0, y0, z0, x1, ...]` (evenly thinned). */
+  vertices: number[];
 }
 
 /** The camera pose from `onCameraTransformUpdate`, world space. */
@@ -61,6 +76,19 @@ export function vec3(v: unknown): Vec3Tuple | null {
   return finite(x) && finite(y) && finite(z) ? [x, y, z] : null;
 }
 
+/** Viro's vertex list as a flat array, keeping at most `max` vertices spread evenly. */
+export function flatVertices(v: unknown, max = MAX_PLANE_VERTICES): number[] {
+  if (!Array.isArray(v)) return [];
+  const all = v.map(vec3).filter((p): p is Vec3Tuple => p !== null);
+  const step = Math.max(1, all.length / max);
+  const out: number[] = [];
+  for (let k = 0; k < all.length && out.length < max * 3; k += step) {
+    const p = all[Math.floor(k)]!;
+    out.push(p[0], p[1], p[2]);
+  }
+  return out;
+}
+
 /** Maps a Viro anchor to a tracked plane. Returns null for anything that is not a usable plane. */
 export function planeFromViroAnchor(anchor: unknown): TrackedPlane | null {
   if (!isObject(anchor)) return null;
@@ -79,7 +107,7 @@ export function planeFromViroAnchor(anchor: unknown): TrackedPlane | null {
     alignment: alignment as PlaneAlignment,
     classification: typeof classification === 'string' ? classification : null,
     anchor: { id: anchorId, position, rotationDeg, center, width, height },
-    vertexCount: Array.isArray(anchor.vertices) ? anchor.vertices.length : 0,
+    vertices: flatVertices(anchor.vertices),
   };
 }
 

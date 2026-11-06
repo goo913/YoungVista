@@ -22,7 +22,7 @@ Decided 2026-11-05. The team asked Claude to make these calls; change any of the
 |---|---|
 | Customer goal | See whether furniture looks right in their room, at real size. Fit checks are approximate. |
 | Rooms | One room per scan. Afterwards, a top-down editor lets users drag corners and type wall lengths. |
-| Scanning (demo) | Works on normal iPhones and Android phones: the user turns around the room, the app finds the floor and walls by itself, and the user taps twice at the bottom of any wall it misses. Corners are worked out automatically. |
+| Scanning (demo) | Works on normal iPhones and Android phones: the app finds the floor, and the user turns around the room and marks each wall once (its bottom edge, or its top edge behind furniture), with two marks on the first wall. Rooms have square corners (rectangles, L and U shapes). Changed 2026-11-05 after the first iPhone 15 test: automatic wall detection failed on plain walls (and a bug placed detected walls twice as far away), so it is now a test switch only. Each scan writes a debug log to `scanLogs`. |
 | Scanning (later) | Apple RoomPlan automatic scanning on iPhone Pro (12 Pro or newer). Not in the demo: the team has no Pro to test with. |
 | Doors | A doorway closes the room. Wide openings ask "include this area?". |
 | Existing furniture | Not captured in the demo; the scan records walls, doors and windows. |

@@ -45,6 +45,8 @@ export interface NewScannedRoom {
   units: UnitSystem;
   room: Room;
   platform: CapturePlatform;
+  /** Correction from a tape-measured wall on the review screen. Default 1 (none). */
+  scaleFactor?: number;
 }
 
 /** The Firestore document for a freshly scanned room (exactly the `RoomDoc` shape). */
@@ -56,7 +58,7 @@ export function scannedRoomDoc(input: NewScannedRoom): RoomDoc<FieldValue> {
     updatedAt: serverTimestamp(),
     units: input.units,
     room: roomToFirestore(input.room),
-    capture: { method: 'scan', platform: input.platform, scaleFactor: 1 },
+    capture: { method: 'scan', platform: input.platform, scaleFactor: input.scaleFactor ?? 1 },
     design: { items: [] },
     shareId: null,
   };

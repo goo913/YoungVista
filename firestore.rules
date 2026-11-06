@@ -1,7 +1,7 @@
 rules_version = '2';
 
-// YoungVista Firestore rules. Owners read and write their own rooms; a share snapshot can be
-// read by anyone who has its link. Everything else is denied.
+// YoungVista Firestore rules. Owners read and write their own rooms and scan logs; a share
+// snapshot can be read by anyone who has its link. Everything else is denied.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -25,6 +25,26 @@ service cloud.firestore {
       match /pictures/{pictureId} {
         allow read, write: if isUser(roomOwner(roomId));
       }
+    }
+
+    // scanLogs/{logId}: one log per scan (apps/mobile/scan/scan-log.ts), so the team can see what
+    // happened on real phones. The signed-in user writes it for themselves, once; nobody can
+    // change it; only they can read (get, or list their own) or delete it.
+    function validScanLog(d) {
+      return d.keys().size() <= 60
+        && d.outcome in ['saved', 'abandoned', 'failed']
+        && d.createdAt is timestamp
+        && d.marks is list && d.marks.size() <= 300
+        && d.walls is list && d.walls.size() <= 400
+        && d.planes is list && d.planes.size() <= 400
+        && d.poses is list && d.poses.size() <= 7000;
+    }
+
+    match /scanLogs/{logId} {
+      allow read, delete: if isUser(resource.data.ownerId);
+      allow create: if isUser(request.resource.data.ownerId)
+        && validScanLog(request.resource.data);
+      allow update: if false;
     }
 
     // shares/{shareId}: a read-only snapshot for a private link. Anyone with the (long, random)

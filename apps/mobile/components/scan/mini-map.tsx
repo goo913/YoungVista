@@ -1,6 +1,6 @@
-import type { CoverageGap, Vec2 } from '@youngvista/core';
+import { toRoomFrame, type RoomAxes, type Vec2 } from '@youngvista/core';
 import { View } from 'react-native';
-import Svg, { Circle, G, Line, Path } from 'react-native-svg';
+import Svg, { Circle, G, Line, Path, Polygon } from 'react-native-svg';
 import { Text } from '@/components/ui/text';
 import type { ScanDerived } from '@/scan/session';
 
@@ -8,30 +8,40 @@ import type { ScanDerived } from '@/scan/session';
 const MIN_SPAN = 4;
 const HEADING_SPREAD = 30;
 
-/** Screen direction for a core angle (degrees CCW from +X seen from above; +Z is down). */
-const dir = (deg: number) => {
-  const r = (deg * Math.PI) / 180;
-  return { x: Math.cos(r), y: -Math.sin(r) };
-};
-
-/** A pie slice from `fromDeg` turning counter-clockwise by `sizeDeg`. */
-function wedge(cx: number, cy: number, r: number, fromDeg: number, sizeDeg: number): string {
-  if (sizeDeg >= 359.9) {
-    return `M ${cx - r} ${cy} a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 ${-2 * r} 0 Z`;
-  }
-  const a = dir(fromDeg);
-  const b = dir(fromDeg + sizeDeg);
-  const large = sizeDeg > 180 ? 1 : 0;
-  // Counter-clockwise on screen is SVG's sweep-flag 0 (y points down).
-  return `M ${cx} ${cy} L ${cx + a.x * r} ${cy + a.y * r} A ${r} ${r} 0 ${large} 0 ${cx + b.x * r} ${cy + b.y * r} Z`;
+interface Pt {
+  x: number;
+  y: number;
 }
 
 /**
- * Live top-down map of the scan, drawn like the floor plan (+X right, +Z down): the walls found
- * so far, the phone and the way it faces, and in red the directions with no wall yet.
+ * Map coordinates: once the first wall is marked, the room's own frame (walls run straight across
+ * and down the map); before, the world seen from above (+X right, +Z down).
+ */
+const mapper =
+  (axes: RoomAxes | null) =>
+  (p: Vec2): Pt => {
+    if (!axes) return { x: p.x, y: p.z };
+    const [a, b] = toRoomFrame(axes, p);
+    return { x: a, y: b };
+  };
+
+/** A pie slice around screen angle `centerDeg` (counter-clockwise on screen, y down). */
+function wedge(cx: number, cy: number, r: number, centerDeg: number, spreadDeg: number): string {
+  const at = (deg: number) => {
+    const rad = (deg * Math.PI) / 180;
+    return { x: cx + Math.cos(rad) * r, y: cy - Math.sin(rad) * r };
+  };
+  const a = at(centerDeg - spreadDeg);
+  const b = at(centerDeg + spreadDeg);
+  return `M ${cx} ${cy} L ${a.x} ${a.y} A ${r} ${r} 0 0 0 ${b.x} ${b.y} Z`;
+}
+
+/**
+ * Live top-down map of the scan: the walls marked so far (red when they do not fit, dashed when
+ * filled in), the room once it closes, the marks, the phone and the way it faces.
  */
 export function MiniMap({ derived, size = 152 }: { derived: ScanDerived; size?: number }) {
-  const { walls, cameraFloor, headingDeg, coverage, pendingPoint, aim } = derived;
+  const { walls, cameraFloor, headingDeg, aim, axes, room, marks, firstWall } = derived;
 
   if (!derived.floor) {
     return (
@@ -46,91 +56,127 @@ export function MiniMap({ derived, size = 152 }: { derived: ScanDerived; size?: 
     );
   }
 
-  const points: Vec2[] = walls.flatMap((w) => [w.a, w.b]);
-  if (cameraFloor) points.push(cameraFloor);
-  if (pendingPoint) points.push(pendingPoint);
-  const focus = cameraFloor ?? points[0] ?? { x: 0, z: 0 };
+  const map = mapper(axes);
+  const outline = room?.ok ? room.room.points.map(([x, z]) => map({ x, z })) : [];
+  const lines = walls.map((w) => ({ ...w, p: map(w.a), q: map(w.b) }));
+  const dots = marks.flatMap((m) => (m.point ? [{ ...m, p: map(m.point) }] : []));
+  const camera = cameraFloor ? map(cameraFloor) : null;
+  const target = aim.point ? map(aim.point) : null;
+  const pending = derived.step === 'second-mark' && firstWall.a ? map(firstWall.a) : null;
+
+  const points: Pt[] = [
+    ...outline,
+    ...lines.flatMap((l) => [l.p, l.q]),
+    ...dots.map((d) => d.p),
+    ...(camera ? [camera] : []),
+  ];
+  const focus = camera ?? points[0] ?? { x: 0, y: 0 };
   let minX = focus.x - MIN_SPAN / 2;
   let maxX = focus.x + MIN_SPAN / 2;
-  let minZ = focus.z - MIN_SPAN / 2;
-  let maxZ = focus.z + MIN_SPAN / 2;
+  let minY = focus.y - MIN_SPAN / 2;
+  let maxY = focus.y + MIN_SPAN / 2;
   for (const p of points) {
     minX = Math.min(minX, p.x);
     maxX = Math.max(maxX, p.x);
-    minZ = Math.min(minZ, p.z);
-    maxZ = Math.max(maxZ, p.z);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
   }
-  const span = Math.max(maxX - minX, maxZ - minZ) * 1.15;
+  const span = Math.max(maxX - minX, maxY - minY) * 1.15;
   const scale = size / span;
   const cx = (minX + maxX) / 2;
-  const cz = (minZ + maxZ) / 2;
-  const sx = (p: Vec2) => (p.x - cx) * scale + size / 2;
-  const sy = (p: Vec2) => (p.z - cz) * scale + size / 2;
+  const cy = (minY + maxY) / 2;
+  const sx = (p: Pt) => (p.x - cx) * scale + size / 2;
+  const sy = (p: Pt) => (p.y - cy) * scale + size / 2;
 
-  const openGaps: CoverageGap[] = coverage?.gaps.filter((g) => !g.bridged) ?? [];
-  const gapCenter = coverage?.center;
+  // The heading, turned into the map's frame, as a screen angle.
+  let headingScreen: number | null = null;
+  if (headingDeg !== null) {
+    const r = (headingDeg * Math.PI) / 180;
+    const h = map({ x: Math.cos(r), z: -Math.sin(r) });
+    const o = map({ x: 0, z: 0 });
+    headingScreen = (Math.atan2(-(h.y - o.y), h.x - o.x) * 180) / Math.PI;
+  }
 
+  const n = walls.length;
   return (
     <View
       style={{ width: size, height: size }}
       className="overflow-hidden rounded-2xl bg-black/55"
       accessible
       accessibilityRole="image"
-      accessibilityLabel={`Map of the scan: ${walls.length} wall${walls.length === 1 ? '' : 's'} found`}
+      accessibilityLabel={
+        room?.ok
+          ? 'Map of the scan: the room is closed'
+          : `Map of the scan: ${n} wall${n === 1 ? '' : 's'} marked`
+      }
     >
       <Svg width={size} height={size}>
-        {gapCenter
-          ? openGaps.map((g, i) => (
-              <Path
-                key={`gap-${i}`}
-                d={wedge(sx(gapCenter), sy(gapCenter), size * 1.5, g.fromDeg, g.sizeDeg)}
-                fill="rgba(239, 68, 68, 0.28)"
-              />
-            ))
-          : null}
-        {walls.map((w, i) => (
+        {outline.length >= 3 ? (
+          <Polygon
+            points={outline.map((p) => `${sx(p)},${sy(p)}`).join(' ')}
+            fill="rgba(74, 222, 128, 0.22)"
+          />
+        ) : null}
+        {lines.map((l, i) => (
           <Line
             key={`wall-${i}`}
-            x1={sx(w.a)}
-            y1={sy(w.a)}
-            x2={sx(w.b)}
-            y2={sy(w.b)}
-            stroke="#ffffff"
-            strokeWidth={3}
+            x1={sx(l.p)}
+            y1={sy(l.p)}
+            x2={sx(l.q)}
+            y2={sy(l.q)}
+            stroke={l.conflict ? '#ef4444' : l.fromPlanes ? '#38bdf8' : '#ffffff'}
+            strokeWidth={l.inferred ? 1.5 : 3}
+            strokeDasharray={l.inferred ? [4, 3] : undefined}
             strokeLinecap="round"
           />
         ))}
-        {cameraFloor && aim?.ok ? (
+        {camera && target ? (
           <Line
-            x1={sx(cameraFloor)}
-            y1={sy(cameraFloor)}
-            x2={sx(aim.point)}
-            y2={sy(aim.point)}
-            stroke="rgba(255, 255, 255, 0.6)"
+            x1={sx(camera)}
+            y1={sy(camera)}
+            x2={sx(target)}
+            y2={sy(target)}
+            stroke={aim.ok ? 'rgba(74, 222, 128, 0.8)' : 'rgba(251, 191, 36, 0.8)'}
             strokeWidth={1}
             strokeDasharray={[3, 3]}
           />
         ) : null}
-        {pendingPoint ? (
-          <Circle cx={sx(pendingPoint)} cy={sy(pendingPoint)} r={4} fill="#facc15" />
+        {pending && target ? (
+          <Line
+            x1={sx(pending)}
+            y1={sy(pending)}
+            x2={sx(target)}
+            y2={sy(target)}
+            stroke="#facc15"
+            strokeWidth={2}
+          />
         ) : null}
-        {cameraFloor ? (
+        {dots.map((d) => (
+          <Circle
+            key={`mark-${d.id}`}
+            cx={sx(d.p)}
+            cy={sy(d.p)}
+            r={3}
+            fill={d.role === 'first' ? '#facc15' : d.edge === 'ceiling' ? '#22d3ee' : '#ffffff'}
+          />
+        ))}
+        {camera ? (
           <G>
-            {headingDeg !== null ? (
+            {headingScreen !== null ? (
               <Path
                 d={wedge(
-                  sx(cameraFloor),
-                  sy(cameraFloor),
+                  sx(camera),
+                  sy(camera),
                   Math.min(size / 4, 0.9 * scale),
-                  headingDeg - HEADING_SPREAD,
-                  2 * HEADING_SPREAD,
+                  headingScreen,
+                  HEADING_SPREAD,
                 )}
                 fill="rgba(56, 189, 248, 0.45)"
               />
             ) : null}
             <Circle
-              cx={sx(cameraFloor)}
-              cy={sy(cameraFloor)}
+              cx={sx(camera)}
+              cy={sy(camera)}
               r={5}
               fill="#38bdf8"
               stroke="#ffffff"

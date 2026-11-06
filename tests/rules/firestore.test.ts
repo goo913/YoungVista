@@ -148,6 +148,71 @@ describe('shares', () => {
   });
 });
 
+describe('scan logs', () => {
+  const log = (ownerId: string, extra: Record<string, unknown> = {}) => ({
+    v: 1,
+    ownerId,
+    createdAt: new Date(),
+    outcome: 'abandoned',
+    platform: 'ios',
+    marks: [{ id: 'm1', origin: [0, 1.4, 0], direction: [0, -0.6, -0.8] }],
+    walls: [],
+    planes: [{ id: 'p1', vertices: [0, 0, 0, 1, 0, 0] }],
+    poses: [0, 0, 1.4, 0, 0, -0.6, -0.8, 0, 0.8, -0.6],
+    ...extra,
+  });
+
+  it('can be written by the signed-in user for themselves only', async () => {
+    await assertSucceeds(db('alice').collection('scanLogs').add(log('alice')));
+    await assertSucceeds(
+      db('alice')
+        .doc('scanLogs/l1')
+        .set(log('alice', { outcome: 'saved' })),
+    );
+    await assertFails(db('alice').doc('scanLogs/l2').set(log('bob')));
+    await assertFails(db().doc('scanLogs/l3').set(log('alice')));
+  });
+
+  it('must look like a scan log of a sane size', async () => {
+    const alice = db('alice');
+    await assertFails(alice.doc('scanLogs/a').set(log('alice', { outcome: 'great' })));
+    await assertFails(alice.doc('scanLogs/b').set(log('alice', { createdAt: 'today' })));
+    await assertFails(
+      alice.doc('scanLogs/c').set(log('alice', { poses: new Array(7001).fill(0) })),
+    );
+    await assertFails(
+      alice.doc('scanLogs/d').set(log('alice', { planes: new Array(401).fill({}) })),
+    );
+    await assertFails(alice.doc('scanLogs/e').set(log('alice', { marks: 'many' })));
+    const wide = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`k${i}`, i]));
+    await assertFails(alice.doc('scanLogs/f').set(log('alice', wide)));
+  });
+
+  it('can be read and deleted by its owner only, and changed by nobody', async () => {
+    await seed('scanLogs/l1', log('alice'));
+    await assertSucceeds(db('alice').doc('scanLogs/l1').get());
+    await assertFails(db('bob').doc('scanLogs/l1').get());
+    await assertFails(db().doc('scanLogs/l1').get());
+    await assertFails(db('alice').doc('scanLogs/l1').update({ outcome: 'saved' }));
+    await assertFails(
+      db('alice')
+        .doc('scanLogs/l1')
+        .set(log('alice', { outcome: 'saved' })),
+    );
+    await assertFails(db('bob').doc('scanLogs/l1').delete());
+    await assertSucceeds(db('alice').doc('scanLogs/l1').delete());
+  });
+
+  it("can be listed by their owner, never anyone else's", async () => {
+    await seed('scanLogs/l1', log('alice'));
+    await seed('scanLogs/l2', log('bob'));
+    await assertSucceeds(db('alice').collection('scanLogs').where('ownerId', '==', 'alice').get());
+    await assertFails(db('alice').collection('scanLogs').get());
+    await assertFails(db('alice').collection('scanLogs').where('ownerId', '==', 'bob').get());
+    await assertFails(db().collection('scanLogs').get());
+  });
+});
+
 describe('everything else', () => {
   it('is denied', async () => {
     await assertFails(db('alice').doc('users/alice').set({ hello: 'world' }));

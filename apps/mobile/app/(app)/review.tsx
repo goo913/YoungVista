@@ -1,11 +1,12 @@
-import { formatArea, roomArea } from '@youngvista/core';
+import { describeRoomSize, formatArea, roomArea, scaleRoom } from '@youngvista/core';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { LuInfo } from 'react-icons/lu';
 import { FloorPlan } from '@/components/floor-plan';
 import { FormError } from '@/components/form-error';
 import { RoomFacts } from '@/components/room-facts';
+import { ScaleCheck } from '@/components/scan/scale-check';
 import { UnitsToggle } from '@/components/units-toggle';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -17,16 +18,46 @@ import { useUser } from '@/lib/auth';
 import { saveErrorMessage, saveScannedRoom } from '@/lib/rooms';
 import { useUnits } from '@/lib/units';
 import { clearRoomDraft, getRoomDraft } from '@/scan/draft';
+import type { ScanLogDetails } from '@/scan/scan-log';
 
 export default function ReviewScreen() {
   const router = useRouter();
   const user = useUser();
   const [units, setUnits] = useUnits();
   const [draft] = useState(getRoomDraft);
+  const [room, setRoom] = useState(() => draft?.room ?? null);
+  const [scaleFactor, setScaleFactor] = useState(1);
   const [name, setName] = useState('My room');
   const [saving, setSaving] = useState(false);
   const [slow, setSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The scan's log: written once, when the room is saved or dropped (scan-log.ts).
+  const latest = useRef({ room, scaleFactor, error });
+  useEffect(() => {
+    latest.current = { room, scaleFactor, error };
+  });
+  const writeLog = useCallback(
+    (details: Pick<ScanLogDetails, 'outcome' | 'roomId' | 'failure'>) => {
+      const log = draft?.log;
+      if (!log || log.logger.done) return;
+      const { room: r, scaleFactor: f } = latest.current;
+      log.logger.finish(log.record, { ...details, room: r, scaleFactor: f });
+    },
+    [draft],
+  );
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      setTimeout(() => {
+        if (mounted.current) return;
+        const failure = latest.current.error;
+        writeLog(failure ? { outcome: 'failed', failure } : { outcome: 'abandoned' });
+      }, 0);
+    };
+  }, [writeLog]);
 
   // A save waits for the server: say so when the connection is slow instead of spinning quietly.
   useEffect(() => {
@@ -36,15 +67,17 @@ export default function ReviewScreen() {
   }, [saving]);
 
   const scanAgain = () => {
+    writeLog({ outcome: 'abandoned' });
     clearRoomDraft();
     router.replace('/scan');
   };
   const discard = () => {
+    writeLog({ outcome: 'abandoned' });
     clearRoomDraft();
     router.replace('/');
   };
 
-  if (!draft) {
+  if (!draft || !room) {
     return (
       <View className="bg-background flex-1 gap-4 p-4">
         <Alert icon={LuInfo}>
@@ -69,15 +102,22 @@ export default function ReviewScreen() {
         ownerId: user.uid,
         name,
         units,
-        room: draft.room,
+        room,
         platform: draft.platform,
+        scaleFactor,
       });
+      writeLog({ outcome: 'saved', roomId: id });
       clearRoomDraft();
       router.replace({ pathname: '/rooms/[id]', params: { id } });
     } catch (e) {
       setError(saveErrorMessage(e));
       setSaving(false);
     }
+  };
+
+  const rescale = (factor: number) => {
+    setRoom(scaleRoom(room, factor));
+    setScaleFactor((f) => f * factor);
   };
 
   const filled = draft.inferredWalls.length;
@@ -96,19 +136,27 @@ export default function ReviewScreen() {
         </View>
         <Card className="px-4">
           <FloorPlan
-            room={draft.room}
+            room={room}
             units={units}
             inferredWalls={draft.inferredWalls}
-            title={`Floor plan, ${formatArea(roomArea(draft.room), units)}`}
+            title={`Floor plan, ${describeRoomSize(room, units)}, ${formatArea(roomArea(room), units)}`}
           />
         </Card>
         {filled > 0 ? (
           <Text className="text-muted-foreground text-xs">
-            Dashed: {filled === 1 ? 'a wall' : `${filled} walls`} the scan did not see, filled in
-            from the walls around {filled === 1 ? 'it' : 'them'}.
+            Dashed: {filled === 1 ? 'a wall' : `${filled} walls`} with no mark on{' '}
+            {filled === 1 ? 'it' : 'them'}, filled in from the walls around{' '}
+            {filled === 1 ? 'it' : 'them'}.
           </Text>
         ) : null}
-        <RoomFacts room={draft.room} units={units} />
+        <RoomFacts room={room} units={units} />
+        <ScaleCheck
+          room={room}
+          units={units}
+          scaleFactor={scaleFactor}
+          onRescale={rescale}
+          disabled={saving}
+        />
         <View className="gap-2">
           <Label nativeID="room-name">Room name</Label>
           <Input
