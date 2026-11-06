@@ -14,6 +14,14 @@ export const THEME = {
     /** Plan drawing. */
     planFill: 'hsla(0, 0%, 9%, 0.05)',
     planInferred: 'hsl(0 0% 63%)',
+    planGlass: 'hsl(205 70% 80%)',
+    planItem: 'hsla(30, 25%, 45%, 0.16)',
+    planItemStroke: 'hsl(30 12% 40%)',
+    planRug: 'hsla(30, 25%, 45%, 0.07)',
+    planSelected: 'hsl(217 91% 50%)',
+    planSelectedFill: 'hsla(217, 91%, 50%, 0.18)',
+    planInvalid: 'hsl(0 84% 55%)',
+    planInvalidFill: 'hsla(0, 84%, 55%, 0.22)',
   },
   dark: {
     background: 'hsl(0 0% 3.9%)',
@@ -26,6 +34,14 @@ export const THEME = {
     border: 'hsl(0 0% 14.9%)',
     planFill: 'hsla(0, 0%, 98%, 0.06)',
     planInferred: 'hsl(0 0% 45%)',
+    planGlass: 'hsl(205 45% 40%)',
+    planItem: 'hsla(30, 25%, 70%, 0.18)',
+    planItemStroke: 'hsl(30 15% 70%)',
+    planRug: 'hsla(30, 25%, 70%, 0.08)',
+    planSelected: 'hsl(213 94% 68%)',
+    planSelectedFill: 'hsla(213, 94%, 68%, 0.2)',
+    planInvalid: 'hsl(0 80% 62%)',
+    planInvalidFill: 'hsla(0, 80%, 62%, 0.25)',
   },
 } as const;
 

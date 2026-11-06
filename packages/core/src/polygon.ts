@@ -146,15 +146,30 @@ export interface RoomShapeLimits {
 export const DEFAULT_MIN_WALL_LENGTH = 0.2;
 export const DEFAULT_MIN_AREA = 2;
 
+/**
+ * Who is asking: 'scan' (walls found by the phone, the default) or 'editor' (the user moving a
+ * corner or typing a wall length on the plan). The wording tells the user what to do next there.
+ */
+export type RoomShapeContext = 'scan' | 'editor';
+
 /** Plain-language explanations a UI can show next to an error code. */
 export function describeRoomShapeError(
   error: RoomShapeError,
-  detail: { wallCount?: number; minWallLength?: number; minArea?: number } = {},
+  detail: {
+    wallCount?: number;
+    minWallLength?: number;
+    minArea?: number;
+    context?: RoomShapeContext;
+  } = {},
 ): string {
+  const editor = detail.context === 'editor';
   switch (error) {
     case 'invalid-input':
-      return 'Some wall measurements are not valid numbers. Try scanning the room again.';
+      return editor
+        ? 'That is not a valid place for a corner.'
+        : 'Some wall measurements are not valid numbers. Try scanning the room again.';
     case 'too-few-walls': {
+      if (editor) return 'A room needs at least 3 walls.';
       const n = detail.wallCount ?? 0;
       if (n === 0) {
         return 'No walls found yet. Point the phone at the walls and turn slowly around the room.';
@@ -163,14 +178,20 @@ export function describeRoomShapeError(
     }
     case 'wall-too-short': {
       const cm = Math.round((detail.minWallLength ?? DEFAULT_MIN_WALL_LENGTH) * 100);
-      return `Two corners are closer than ${cm} cm. Move one of them or remove the short wall.`;
+      return editor
+        ? `That would make a wall shorter than ${cm} cm.`
+        : `Two corners came out closer than ${cm} cm. Scan the walls near that corner again.`;
     }
     case 'self-intersecting':
-      return 'The walls cross each other. Rescan the walls that look wrong, or move a corner on the plan.';
+      return editor
+        ? 'That would make the walls cross each other. Move the corner back a little.'
+        : 'The walls found cross each other. Scan the walls that look wrong again.';
     case 'too-small': {
       const m2 = detail.minArea ?? DEFAULT_MIN_AREA;
       const sqft = Math.round(m2 * 10.7639);
-      return `The room is smaller than ${m2} m² (about ${sqft} sq ft). Check that the walls found belong to this room.`;
+      return editor
+        ? `That would make the room smaller than ${m2} m² (about ${sqft} sq ft).`
+        : `The room is smaller than ${m2} m² (about ${sqft} sq ft). Check that the walls found belong to this room.`;
     }
   }
 }
@@ -180,18 +201,20 @@ export type RoomShapeValidation =
 
 /**
  * Checks that an outline can be a room: at least 3 corners, finite numbers, every wall at least
- * `minWallLength` long, no self-crossing, and an area of at least `minArea`.
+ * `minWallLength` long, no self-crossing, and an area of at least `minArea`. `context` picks the
+ * wording of the reason (see `describeRoomShapeError`).
  */
 export function validateRoomShape(
   points: readonly (Point | Vec2)[],
   limits: RoomShapeLimits = {},
+  context: RoomShapeContext = 'scan',
 ): RoomShapeValidation {
   const minWallLength = limits.minWallLength ?? DEFAULT_MIN_WALL_LENGTH;
   const minArea = limits.minArea ?? DEFAULT_MIN_AREA;
   const fail = (error: RoomShapeError, wallCount?: number): RoomShapeValidation => ({
     ok: false,
     error,
-    reason: describeRoomShapeError(error, { wallCount, minWallLength, minArea }),
+    reason: describeRoomShapeError(error, { wallCount, minWallLength, minArea, context }),
   });
 
   const pts = points.map(toVec);

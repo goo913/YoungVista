@@ -85,6 +85,16 @@ npm run publish:iphone                    # upload to TestFlight (the owner runs
   in Firebase for Google sign-in; add the SHA-1 of any other signing key there too.
 - `npm run typecheck`, `npm test` and `npx eslint apps/mobile` cover the app. Device checks:
   [docs/device-checklist.md](docs/device-checklist.md).
+- To try the app without touching the live project, run a development build against the Firebase
+  emulators (above): start Metro with
+  `EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=10.0.2.2 npx expo start --dev-client` in `apps/mobile`
+  (10.0.2.2 is the computer as seen from the Android emulator; a phone on Wi-Fi uses the
+  computer's address). The app then uses the demo project `demo-young-vista` and none of the live
+  settings, Settings says so, and the rooms list offers "Add a sample room" (an L-shaped room,
+  since there is no AR to scan with). Release builds ignore the setting. On an Android emulator,
+  the 3D view also needs `adb shell settings put global angle_gl_driver_selection_pkgs
+  com.youngcorporation.youngvista` and `... angle_gl_driver_selection_values angle`: ViroReact
+  asks for an sRGB screen buffer, which the emulator's own GL driver cannot make.
 
 ## Settings and secrets
 

@@ -57,3 +57,50 @@ floor with each Euler order.
 
 - [ ] Every saved room appears on https://young-vista.web.app with the same plan, wall lengths
       and area.
+
+## Build 2: furnish a room in 3D
+
+Phones: the **iPhone 15** and an Android phone. Use a room saved in Build 1 (an L-shaped one if
+you have it). The Android emulator check (not a phone) passed for everything below except what
+only a phone can show: the iPhone's 3D drawing, real fingers, and the speed of a real phone.
+
+### 3D view and furniture
+
+- [ ] Open a room, tap **Furnish in 3D**. The room appears in 3D within a few seconds: floor,
+      walls, doors and windows; the walls between you and the room are faint.
+- [ ] One finger on empty floor turns around the room; two fingers pinch to zoom; **Top view**
+      glides to a view straight down and **3D** back. Note if anything stutters.
+- [ ] **Add furniture**: the categories and pictures show, with sizes in feet and inches (and in
+      metres after switching units). Add 5 pieces; each lands in a free spot.
+- [ ] Drag a piece with one finger in 3D and in **Plan**: it follows the finger and snaps flush
+      to a wall within about 6 inches, turning to face the room, and into corners.
+- [ ] Turn a piece with two fingers (in 3D with the piece selected, and in Plan): it turns in 15°
+      steps. The 15° buttons do the same.
+- [ ] Drag a piece onto another: it turns red with "Overlaps the …" and goes back when let go.
+- [ ] **Copy**, **Remove** (and **Undo** in the message) and the colour swatches work; a new
+      colour shows in 3D after a moment the first time.
+- [ ] A piece whose model cannot load shows as a grey box with its name (try airplane mode with
+      a colour never opened before).
+
+### Saving
+
+- [ ] The header says "Saving…", then "Saved". Close the app completely and open it again: the
+      furniture is where you left it.
+- [ ] In airplane mode, move a piece: the header says "Offline, will save". Close the app, open
+      it again still offline: the rooms list, the room and its 3D view (models already opened
+      once) all open. Turn airplane mode off: the change reaches the website.
+- [ ] The room on https://young-vista.web.app shows the same furniture on the plan and in 3D.
+
+### Room editor
+
+- [ ] **Edit walls, doors and windows**: drag a corner (walls snap straight when nearly
+      straight); tap a wall and type a length in feet and inches, then in metres.
+- [ ] Add a door, a window and an opening; drag them along the wall; change a window's size and
+      sill; remove one. **Undo** takes back the last change.
+- [ ] Set a low ceiling (6′): the message says which doors and windows were made smaller. Undo.
+- [ ] The website shows the new walls, doors and windows.
+
+### Credits
+
+- [ ] Settings → **3D model credits** (also at the bottom of the furniture picker) lists every
+      CC BY model with its author, licence and source link; the links open.

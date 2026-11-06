@@ -4,16 +4,26 @@ import {
   inwardNormal,
   wallEndpoints,
   wallLengths,
+  type Footprint,
   type Room,
   type UnitSystem,
 } from '@youngvista/core';
 import { useColorScheme } from 'nativewind';
 import { View } from 'react-native';
 import Svg, { G, Line, Polygon, Text as SvgText } from 'react-native-svg';
+import { FootprintShape, OpeningShapes } from '@/components/plan/plan-shapes';
 import { THEME } from '@/lib/theme';
 
 /** SVG units per metre (centimetres keep text sizes sensible). */
 const S = 100;
+
+/** A piece of furniture on the plan. */
+export interface PlanFurniture {
+  id: string;
+  footprint: Footprint;
+  /** Rugs: drawn under everything else, more lightly. */
+  flat: boolean;
+}
 
 interface FloorPlanProps {
   room: Room;
@@ -29,6 +39,8 @@ interface FloorPlanProps {
    * fits the plan inside it (thumbnails, previews).
    */
   layout?: 'width' | 'fill';
+  /** Furniture footprints, front edge thicker. */
+  furniture?: readonly PlanFurniture[];
 }
 
 /**
@@ -42,6 +54,7 @@ export function FloorPlan({
   inferredWalls = [],
   title,
   layout = 'width',
+  furniture = [],
 }: FloorPlanProps) {
   const { colorScheme } = useColorScheme();
   const c = THEME[colorScheme === 'dark' ? 'dark' : 'light'];
@@ -60,6 +73,8 @@ export function FloorPlan({
   const outline = room.points.map(([x, z]) => `${x * S},${z * S}`).join(' ');
   const lengths = wallLengths(room);
   const inferred = new Set(inferredWalls);
+  const pt = (p: { x: number; z: number }) => ({ x: p.x * S, y: p.z * S });
+  const ordered = [...furniture.filter((f) => f.flat), ...furniture.filter((f) => !f.flat)];
 
   return (
     <View
@@ -74,6 +89,19 @@ export function FloorPlan({
     >
       <Svg width="100%" height="100%" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}>
         <Polygon points={outline} fill={c.planFill} />
+        {ordered.map((f) => (
+          <FootprintShape
+            key={f.id}
+            footprint={f.footprint}
+            pt={pt}
+            strokeWidth={wall * 0.22}
+            style={{
+              fill: f.flat ? c.planRug : c.planItem,
+              stroke: c.planItemStroke,
+              front: c.planItemStroke,
+            }}
+          />
+        ))}
         {room.walls.map((w, i) => {
           const { a, b: end } = wallEndpoints(room, w);
           const dashed = inferred.has(i);
@@ -91,6 +119,20 @@ export function FloorPlan({
             />
           );
         })}
+        {/* Doors clear the wall in the card's colour, so only full plans (on cards) show them. */}
+        {labels ? (
+          <OpeningShapes
+            room={room}
+            pt={pt}
+            wallWidth={wall}
+            colors={{
+              background: c.card,
+              wall: c.foreground,
+              door: c.foreground,
+              glass: c.planGlass,
+            }}
+          />
+        ) : null}
 
         {labels
           ? room.walls.map((w, i) => {

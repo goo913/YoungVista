@@ -11,5 +11,7 @@ declare namespace NodeJS {
     EXPO_PUBLIC_FIREBASE_APP_ID?: string;
     EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?: string;
     EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?: string;
+    /** Development runs only: use the Firebase emulators on this host (lib/emulator.ts). */
+    EXPO_PUBLIC_FIREBASE_EMULATOR_HOST?: string;
   }
 }

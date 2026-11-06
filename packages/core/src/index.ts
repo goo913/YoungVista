@@ -35,6 +35,7 @@ export {
 export type {
   Point,
   Bounds,
+  RoomShapeContext,
   RoomShapeError,
   RoomShapeLimits,
   RoomShapeValidation,

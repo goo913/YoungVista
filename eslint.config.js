@@ -15,6 +15,7 @@ export default defineConfig([
     'apps/mobile/ios/',
     'apps/mobile/android/',
     '.firebase/',
+    '.claude/',
   ]),
   {
     files: ['**/*.{js,mjs,cjs,ts,mts,cts,tsx}'],

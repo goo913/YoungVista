@@ -1,8 +1,15 @@
 import { formatArea, roomArea, type UnitSystem } from '@youngvista/core';
 import { Link, Stack, useRouter } from 'expo-router';
-import { Alert as NativeAlert, FlatList, Pressable, View } from 'react-native';
+import { useState } from 'react';
+import { FlatList, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LuLogOut, LuScanLine, LuSquareDashed, LuTriangleAlert } from 'react-icons/lu';
+import {
+  LuCloudOff,
+  LuScanLine,
+  LuSettings,
+  LuSquareDashed,
+  LuTriangleAlert,
+} from 'react-icons/lu';
 import { FloorPlan } from '@/components/floor-plan';
 import { UnitsToggle } from '@/components/units-toggle';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -11,9 +18,11 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/ca
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { signOut, useUser } from '@/lib/auth';
+import { useUser } from '@/lib/auth';
+import { emulatorHost } from '@/lib/firebase';
 import { formatDate } from '@/lib/format';
-import { useRooms, type RoomSummary } from '@/lib/rooms';
+import { saveScannedRoom, useRooms, type RoomSummary } from '@/lib/rooms';
+import { sampleRoom } from '@/lib/sample-room';
 import { useUnits } from '@/lib/units';
 
 export default function RoomsScreen() {
@@ -28,7 +37,16 @@ export default function RoomsScreen() {
     <View className="bg-background flex-1">
       <Stack.Screen
         options={{
-          headerRight: () => <SignOutButton email={user.email} />,
+          headerRight: () => (
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={() => router.push('/settings')}
+              accessibilityLabel="Settings"
+            >
+              <Icon as={LuSettings} size={20} />
+            </Button>
+          ),
         }}
       />
       <FlatList
@@ -44,6 +62,14 @@ export default function RoomsScreen() {
               </Text>
               <UnitsToggle value={units} onChange={setUnits} />
             </View>
+            {rooms.status === 'ready' && !rooms.online ? (
+              <Alert icon={LuCloudOff}>
+                <AlertDescription>
+                  Offline: showing the rooms kept on this phone. Changes are saved when the
+                  connection is back.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             {rooms.status === 'loading' ? <RoomListSkeleton /> : null}
             {rooms.status === 'error' ? (
               <Alert variant="destructive" icon={LuTriangleAlert}>
@@ -53,6 +79,7 @@ export default function RoomsScreen() {
             {rooms.status === 'ready' && rooms.data.length === 0 ? (
               <EmptyRooms onScan={() => router.push('/scan')} />
             ) : null}
+            {emulatorHost ? <SampleRoomButton ownerId={user.uid} /> : null}
           </View>
         }
         renderItem={({ item }) => <RoomCard room={item} units={units} />}
@@ -72,16 +99,30 @@ export default function RoomsScreen() {
   );
 }
 
-function SignOutButton({ email }: { email: string | null }) {
-  const confirm = () => {
-    NativeAlert.alert('Sign out?', email ? `You are signed in as ${email}.` : undefined, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => void signOut() },
-    ]);
+/**
+ * Development runs against the Firebase emulators only (no AR there): adds an L-shaped room
+ * through the app's own save code.
+ */
+function SampleRoomButton({ ownerId }: { ownerId: string }) {
+  const [units] = useUnits();
+  const [busy, setBusy] = useState(false);
+  const add = async () => {
+    setBusy(true);
+    try {
+      await saveScannedRoom({
+        ownerId,
+        name: 'Sample L-shaped room',
+        units,
+        room: sampleRoom(),
+        platform: Platform.OS === 'ios' ? 'ios' : 'android',
+      });
+    } finally {
+      setBusy(false);
+    }
   };
   return (
-    <Button variant="ghost" size="icon" onPress={confirm} accessibilityLabel="Sign out">
-      <Icon as={LuLogOut} size={20} />
+    <Button variant="outline" onPress={() => void add()} disabled={busy}>
+      <Text>Add a sample room (emulator only)</Text>
     </Button>
   );
 }

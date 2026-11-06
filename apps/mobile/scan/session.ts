@@ -321,8 +321,8 @@ export function deriveScan(state: ScanState): ScanDerived {
 }
 
 /**
- * The reason a room could not be made, worded for the scan. Core's wording for crossing walls
- * and short walls points at the plan editor, which comes in Build 2.
+ * The reason a room could not be made, worded for the scan screen: for crossing walls and short
+ * walls it says where to point and what to tap. Other reasons use core's scan wording.
  */
 export function scanFailureMessage(failure: BuildRoomFailure): string {
   switch (failure.error) {

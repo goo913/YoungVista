@@ -12,7 +12,9 @@
   "include": [
     "app",
     "components",
+    "furnish",
     "lib",
+    "room-edit",
     "scan",
     "test",
     "app.config.ts",

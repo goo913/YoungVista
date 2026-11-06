@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
-import { formatLengthInput, parseCeilingHeightInput } from '@/scan/length-input';
+import { formatLengthInput, parseCeilingHeightInput } from '@/lib/length-input';
 
 /**
  * After the walls close: shows the outline and asks for the ceiling height (8 ft unless typed

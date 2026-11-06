@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SetupNeeded } from '@/components/setup-needed';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { missingFirebaseSettings } from '@/lib/firebase';
@@ -21,19 +22,22 @@ export default function RootLayout() {
   const { colorScheme } = useColorScheme();
   const scheme = colorScheme === 'dark' ? 'dark' : 'light';
   return (
-    <ThemeProvider value={NAV_THEME[scheme]}>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      {missingFirebaseSettings.length > 0 ? (
-        <SetupNeeded names={missingFirebaseSettings} />
-      ) : (
-        <AuthProvider>
-          <UnitsProvider>
-            <Routes />
-          </UnitsProvider>
-        </AuthProvider>
-      )}
-      <PortalHost />
-    </ThemeProvider>
+    // Drags and two-finger turns in the plan, the 3D view and the room editor need this root.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={NAV_THEME[scheme]}>
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        {missingFirebaseSettings.length > 0 ? (
+          <SetupNeeded names={missingFirebaseSettings} />
+        ) : (
+          <AuthProvider>
+            <UnitsProvider>
+              <Routes />
+            </UnitsProvider>
+          </AuthProvider>
+        )}
+        <PortalHost />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 

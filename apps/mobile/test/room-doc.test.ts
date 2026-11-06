@@ -1,7 +1,21 @@
 import { roomFromFirestore, roomFromPoints } from '@youngvista/core';
 import { Timestamp } from 'firebase/firestore';
 import { describe, expect, it } from 'vitest';
-import { saveErrorMessage, scannedRoomDoc, toSummary } from '@/lib/room-doc';
+import {
+  designUpdate,
+  listFromCache,
+  listToCache,
+  pendingFromText,
+  pendingToText,
+  roomUpdate,
+  saveErrorMessage,
+  scannedRoomDoc,
+  summaryFromCache,
+  summaryToCache,
+  toSummary,
+  withPending,
+  type RoomSummary,
+} from '@/lib/room-doc';
 
 const room = roomFromPoints(
   [
@@ -78,7 +92,94 @@ describe('toSummary', () => {
       updatedAt: now.toDate(),
       units: 'metric',
       room,
+      design: { items: [] },
     });
+  });
+
+  it('reads the furniture, skipping unusable items', () => {
+    const summary = toSummary('r1', {
+      name: 'Den',
+      room: scannedRoomDoc({ ownerId: 'u', name: 'Den', units: 'metric', room, platform: 'ios' })
+        .room,
+      design: {
+        items: [
+          { id: 'a', productId: 'sofa', x: 1, z: 2, rotationY: 90, variant: 'navy' },
+          { id: 'b', productId: 'lamp' }, // no position
+        ],
+      },
+    });
+    expect(summary.design.items).toEqual([
+      { id: 'a', productId: 'sofa', x: 1, z: 2, rotationY: 90, variant: 'navy' },
+    ]);
+  });
+});
+
+const summary: RoomSummary = {
+  id: 'r1',
+  name: 'Den',
+  updatedAt: new Date(1_700_000_000_000),
+  units: 'imperial',
+  room,
+  design: { items: [{ id: 'a', productId: 'sofa', x: 1, z: 2, rotationY: 0 }] },
+};
+
+describe('autosave writes', () => {
+  it('write exactly what designToFirestore gives: no undefined fields', () => {
+    const update = designUpdate({
+      items: [
+        { id: 'a', productId: 'sofa', x: 1, z: 2, rotationY: 0, variant: undefined, y: 0 },
+        { id: 'b', productId: 'succulent', x: 1, z: 2, rotationY: 0, y: 0.75 },
+      ],
+    });
+    expect(update.design).toEqual({
+      items: [
+        { id: 'a', productId: 'sofa', x: 1, z: 2, rotationY: 0 },
+        { id: 'b', productId: 'succulent', x: 1, z: 2, rotationY: 0, y: 0.75 },
+      ],
+    });
+    expect(Object.keys(update.design.items[0]!)).not.toContain('variant');
+    expect(Object.keys(update).sort()).toEqual(['design', 'updatedAt']);
+    const shape = roomUpdate(room);
+    expect(roomFromFirestore(shape.room)).toEqual(room);
+    expect(Object.keys(shape).sort()).toEqual(['room', 'updatedAt']);
+  });
+});
+
+describe('the copies kept on the phone', () => {
+  it('keep the rooms list so it shows without a connection', () => {
+    const other: RoomSummary = { ...summary, id: 'r2', name: 'Den', room: null };
+    expect(listFromCache(listToCache([summary, other]))).toEqual([summary, other]);
+    expect(listFromCache(null)).toEqual([]);
+    expect(listFromCache('{"no":"list"}')).toEqual([]);
+    expect(listFromCache('[{"id":"x","copy":"broken"}, 7]')).toEqual([]);
+  });
+
+  it('keep a room so it opens without a connection', () => {
+    expect(summaryFromCache('r1', summaryToCache(summary))).toEqual(summary);
+    expect(summaryFromCache('r1', null)).toBeNull();
+    expect(summaryFromCache('r1', '{"v":2}')).toBeNull();
+    expect(summaryFromCache('r1', 'not json')).toBeNull();
+  });
+
+  it('keep edits not on the server yet and lay them over the room', () => {
+    const design = { items: [{ id: 'b', productId: 'bed', x: 2, z: 2, rotationY: 90 }] };
+    const pending = pendingFromText(pendingToText({ design }));
+    expect(pending).toEqual({ design });
+    expect(withPending(summary, pending).design).toEqual(design);
+    expect(withPending(summary, {})).toBe(summary);
+    const moved = roomFromPoints(
+      [
+        [0, 0],
+        [5, 0],
+        [5, 3],
+        [0, 3],
+      ],
+      { ceilingHeight: 2.5 },
+    );
+    expect(withPending(summary, pendingFromText(pendingToText({ room: moved }))).room).toEqual(
+      moved,
+    );
+    expect(pendingFromText('garbage')).toEqual({});
   });
 });
 

@@ -3,6 +3,7 @@ import {
   DEFAULT_OPENINGS,
   addOpening,
   describeRoomEditError,
+  describeRoomShapeError,
   findOpening,
   fitOpenings,
   moveCorner,
@@ -303,5 +304,26 @@ describe('wall helpers', () => {
       'The window overlaps another door or window on this wall.',
     );
     expect(describeRoomEditError('too-small')).toContain('smaller than');
+  });
+
+  it('words shape errors for the plan editor, not the scan', () => {
+    const crossed = moveCorner(base, 1, [0.5, -1]);
+    expect(!crossed.ok && crossed.reason).toBe(
+      'That would make the walls cross each other. Move the corner back a little.',
+    );
+    const short = moveCorner(base, 1, [0.1, 3]);
+    expect(!short.ok && short.reason).toBe('That would make a wall shorter than 20 cm.');
+    expect(describeRoomEditError('too-small')).toMatch(/^That would make the room smaller/);
+    expect(describeRoomShapeError('self-intersecting')).toMatch(/^The walls found cross/);
+    expect(describeRoomShapeError('wall-too-short', { context: 'editor' })).toMatch(/^That would/);
+  });
+});
+
+describe('default openings', () => {
+  it('are a 0.9 × 2.03 m door and a 1.2 m square window 0.9 m up', () => {
+    expect(DEFAULT_OPENINGS.door).toEqual({ width: 0.9, height: 2.03, sill: 0 });
+    expect(DEFAULT_OPENINGS.window).toEqual({ width: 1.2, height: 1.2, sill: 0.9 });
+    const win = ok(addOpening(base, 1, { type: 'window' })).walls[1]!.openings[0]!;
+    expect(win).toMatchObject({ offset: 0.9, width: 1.2, height: 1.2, sill: 0.9 });
   });
 });

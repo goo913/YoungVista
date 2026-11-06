@@ -23,13 +23,16 @@ export const MIN_OPENING_SIZE = 0.2;
 export const MIN_CEILING_HEIGHT = 1.5;
 export const MAX_CEILING_HEIGHT = 6;
 
-/** Sizes for new openings: a 32″ × 80″ door, a 36″ × 48″ window 36″ up, a 36″ × 80″ opening. */
+/**
+ * Sizes for new openings (m): a 0.9 × 2.03 m door (about 35″ × 80″), a 1.2 × 1.2 m window with its
+ * sill 0.9 m up (about 47″ square, 35″ up) and a 1 × 2.03 m doorless opening.
+ */
 export const DEFAULT_OPENINGS: Readonly<
   Record<OpeningType, { width: number; height: number; sill: number }>
 > = {
-  door: { width: 0.8128, height: 2.032, sill: 0 },
-  window: { width: 0.9144, height: 1.2192, sill: 0.9144 },
-  opening: { width: 0.9144, height: 2.032, sill: 0 },
+  door: { width: 0.9, height: 2.03, sill: 0 },
+  window: { width: 1.2, height: 1.2, sill: 0.9 },
+  opening: { width: 1, height: 2.03, sill: 0 },
 };
 
 const EPS = 1e-6;
@@ -93,7 +96,7 @@ export function describeRoomEditError(
     case 'no-room-for-opening':
       return `There is no free space on this wall for ${thing === 'It' ? 'it' : thing.toLowerCase()}.`;
     default:
-      return describeRoomShapeError(error, detail);
+      return describeRoomShapeError(error, { ...detail, context: 'editor' });
   }
 }
 
@@ -305,7 +308,7 @@ export function fitOpenings(room: Room): { room: Room; changes: OpeningChange[] 
  * projected onto the wall's new line), then everything is fitted.
  */
 function withMovedCorners(before: Room, points: Point[], limits?: RoomShapeLimits): RoomEditResult {
-  const shape = validateRoomShape(points, limits);
+  const shape = validateRoomShape(points, limits, 'editor');
   if (!shape.ok) return { ok: false, error: shape.error, reason: shape.reason };
   const after: Room = { ...cloneRoom(before), points };
   // Moving a corner across the room can turn the outline inside out.
