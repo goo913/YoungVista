@@ -5,6 +5,8 @@
  *
  * 1. each picture's JPEG at users/{uid}/rooms/{roomId}/pictures/* and its record at
  *    rooms/{roomId}/pictures/* (uploads for the room are held first, so none lands meanwhile);
+ *    and, for a room scanned by turning around, its scan's folder (`tour.scanId`: the keyframes,
+ *    capture.json and the panoramas, at captureFolder(uid, scanId));
  * 2. the share doc, when the room has a link;
  * 3. the room's waiting picture uploads and edits kept on the phone, and its copies;
  * 4. the room doc.
@@ -29,6 +31,11 @@ import { forgetPending, removeFromRoomsCopy, removeRoomCopy } from './pending';
 import { deleteStorageFile, forgetUploadedFile, pictureUploads, withTimeout } from './pictures';
 import { deleteErrorMessage } from './room-doc';
 import { toasts } from './toast';
+import { tourScanId } from '@/scan/turn/fit';
+import { deleteCaptureFolder } from './turn-scan';
+
+/** A scan's folder holds about 70 files: time enough for them all (ms). */
+const SCAN_FOLDER_MS = 90_000;
 
 /** Deletes the room `roomId` of user `uid` and everything that belongs to it, in order. */
 export async function deleteRoomEverywhere(uid: string, roomId: string): Promise<void> {
@@ -53,6 +60,9 @@ export async function deleteRoomEverywhere(uid: string, roomId: string): Promise
       // JPEGs whose record was never written (an upload cut short before its record).
       const folder = await withTimeout(listAll(ref(firebaseStorage(), own.slice(0, -1))));
       for (const item of folder.items) await deleteStorageFile(item.fullPath);
+      // The turn-around scan's pictures and panoramas.
+      const scanId = tourScanId(room.get('tour'));
+      if (scanId) await withTimeout(deleteCaptureFolder(uid, scanId), SCAN_FOLDER_MS);
       // 2. The private link.
       const shareId: unknown = room.get('shareId');
       if (isShareId(shareId)) {

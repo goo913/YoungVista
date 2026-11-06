@@ -19,6 +19,7 @@ import {
   markAtAim,
   removePlane,
   setCamera,
+  setFit,
   setLightIntensity,
   setOptions,
   setTracking,
@@ -33,6 +34,7 @@ import {
   type ScanState,
 } from './session';
 import { rememberPose, steadyPose, type TimedPose } from './steady';
+import type { FitSeed } from './turn/merge';
 import {
   anchorIdOf,
   cameraPoseFromViro,
@@ -248,6 +250,11 @@ export class ScanController {
 
   setOptions(options: Partial<ScanOptions>): void {
     this.set(setOptions(this.state, options));
+  }
+
+  /** The turn-around scan's walls from the server (null: mark every wall instead). */
+  setFit(fit: FitSeed | null): void {
+    this.set(setFit(this.state, fit));
   }
 
   setDebug(debug: boolean): void {

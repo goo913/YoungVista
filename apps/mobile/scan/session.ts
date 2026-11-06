@@ -15,6 +15,11 @@
  * Marks are kept as camera rays, so they move with the floor if a better floor turns up. The
  * geometry is in `@youngvista/core` (wall-marks.ts). Plain data and pure functions:
  * ScanController (controller.ts) holds one state and feeds it Viro's events.
+ *
+ * The turn-around scan (scan/turn/) gives the session the server's walls as marks (`setFit`):
+ * then the steps go from the floor straight to 'walls', the room's directions and the ceiling
+ * come from the fit, and the user's marks join them, each taking the place of the server's wall
+ * it lands on (scan/turn/merge.ts). Without a fit nothing here changes.
  */
 import {
   DEFAULT_CEILING_HEIGHT,
@@ -27,6 +32,7 @@ import {
   hitLevelPlane,
   measureCeiling,
   placeMark,
+  roomAxes,
   solveRectilinearRoom,
   solveRoomLeavingOut,
   wallDirection,
@@ -75,6 +81,7 @@ import {
   planeWorldVertices,
   type CenterSpace,
 } from './planes';
+import { mergeFitMarks, type FitSeed } from './turn/merge';
 import type { CameraPose, TrackedPlane } from './viro-anchor';
 
 export type { ScanStep } from './coaching';
@@ -128,6 +135,8 @@ export interface ScanState {
    * a point every VISIT_STEP. A wall cannot stand where the phone has been (`wallEvidence`).
    */
   visited: readonly Vec2[];
+  /** Turn-around scan: the server's walls, which the user's marks join (see the header). */
+  fit: FitSeed | null;
 }
 
 export function createScanState(options: Partial<ScanOptions> = {}): ScanState {
@@ -143,8 +152,12 @@ export function createScanState(options: Partial<ScanOptions> = {}): ScanState {
     nextMarkNumber: 1,
     options: { ...DEFAULT_SCAN_OPTIONS, ...options },
     visited: [],
+    fit: null,
   };
 }
+
+/** The server's walls for the turn-around scan (null: back to marking every wall). */
+export const setFit = (state: ScanState, fit: FitSeed | null): ScanState => ({ ...state, fit });
 
 /** Looks at the floor again after the planes or the camera changed. */
 function withFloor(state: ScanState): ScanState {
@@ -204,6 +217,7 @@ export const setOptions = (state: ScanState, options: Partial<ScanOptions>): Sca
 
 export function scanStep(state: ScanState): ScanStep {
   if (!state.floor) return 'floor';
+  if (state.fit) return 'walls';
   const firsts = state.marks.filter((m) => m.role === 'first').length;
   if (firsts === 0) return 'first-wall';
   if (firsts === 1) return 'second-mark';
@@ -263,7 +277,11 @@ export function detectedCeiling(state: ScanState, floorY: number): number | null
 
 function ceilingOf(state: ScanState, floorY: number, first: FirstWall): CeilingInfo | null {
   const mark = state.marks.find((m) => m.role === 'ceiling');
-  if (!mark && !state.ceilingSkipped) return null;
+  if (!mark && state.fit?.ceilingHeight != null) {
+    // Found by the turn-around scan's server (it says "the phone found the ceiling").
+    return { height: state.fit.ceilingHeight, source: 'detected' };
+  }
+  if (!mark && !state.ceilingSkipped && !state.fit) return null;
   const detected = detectedCeiling(state, floorY);
   if (mark && first.a && first.b) {
     const m = measureCeiling(mark.ray, floorY, first.a, first.b, AGAIN_MAX_DISTANCE);
@@ -853,7 +871,12 @@ export function deriveScan(state: ScanState): ScanDerived {
   const floorY = state.floor?.y ?? null;
   const first: FirstWall = floorY === null ? { a: null, b: null } : firstWallOf(state, floorY);
   const ceiling = floorY === null ? null : ceilingOf(state, floorY, first);
-  const startAxes = first.a && first.b ? axesThrough(first.a, first.b) : null;
+  const startAxes =
+    first.a && first.b
+      ? axesThrough(first.a, first.b)
+      : state.fit
+        ? roomAxes(state.fit.axesAngle)
+        : null;
 
   // Every mark on a wall, as a point on the wall's floor line.
   const inputs: WallMarkInput[] = [];
@@ -892,7 +915,8 @@ export function deriveScan(state: ScanState): ScanDerived {
   let grouped: GroupedWalls | null = null;
   let planeChecks: PlaneWallCheck[] = [];
   let dropped: DroppedWall[] = [];
-  let used = inputs;
+  // The turn-around scan's walls first, then the user's marks (each replaces the wall it is on).
+  let used = state.fit ? mergeFitMarks(state.fit, inputs).marks : inputs;
   if (startAxes) {
     grouped = groupWallMarks(used, startAxes);
     if (step === 'walls') {
@@ -900,7 +924,7 @@ export function deriveScan(state: ScanState): ScanDerived {
       const ruled = contradictedWalls(state, grouped, tops);
       if (ruled.dropped.length > 0) {
         dropped = ruled.dropped;
-        used = inputs.filter((i) => !ruled.markIds.has(i.id));
+        used = used.filter((i) => !ruled.markIds.has(i.id));
         grouped = groupWallMarks(used, startAxes);
       }
     }

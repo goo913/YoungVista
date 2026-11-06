@@ -242,6 +242,90 @@ fingers and speed, the AR lights).
 - [ ] Dragging furniture in the 3D view and moving around in AR feel as smooth as before or
       smoother.
 
+## Turn-around scan (iPhone only)
+
+Phone: the owner's **iPhone 15**, in good light. Rooms: a plain rectangular bedroom with a bed
+against one wall, and an L-shaped or long room. Doors closed, curtains open. Install with
+`npm run iphone`: the scan adds a native module (room capture), so the first run makes the
+iPhone project again. The server side (`fitRoom` and the fitting job) must be deployed; without
+it the scan offers to mark the walls instead, which is checked below too. The unit tests cover
+the rings, the keyframe choice, the upload, the server's walls with marks by hand, the doors and
+windows and the tour; everything below needs the real iPhone. Find each scan's numbers in the
+Firebase console under `scanLogs` (the newest, `method: "turn"`) and its pictures in Storage under
+`users/{uid}/scans/{scanId}/`.
+
+### What only the iPhone can tell (write these down)
+
+- [ ] **Video format:** the log's `turn.video` says `before` (expected `3840x2160@30`, the 16:9 4K
+      format ViroKit's "High" quality picks) and `format` (expected `1920x1440@60`, the 4:3
+      format) with `switched: true`, or a `note` saying why not.
+- [ ] **The AR view survives the switch:** right after the camera opens, the picture may hitch
+      once; then it is sharp, fills the screen the right way round, follows the phone smoothly
+      and the floor is found as usual. Note any freeze, black picture or stretched picture.
+- [ ] **Same world:** `turn.capture.frameCheck` has `medianM` under 0.02 and `medianDeg` under 2
+      (ARKit's frames and Viro's camera agree; a different world would be metres or tens of
+      degrees off).
+- [ ] **The pictures:** open two of `kf/000.jpg`… in Storage: 1920 × 1440 (or the session's
+      size), sharp, sideways as the sensor sees them (that is right). `capture.json` lists every
+      frame with its `transform`, `intrinsics`, `width`, `height` and the floor's `y`.
+- [ ] **Size and time:** the log's `turn.upload.bytes` (expected 25 to 45 MB) and `ms`, and
+      `turn.fit.ms` (expected 40 to 90 s). Whether the camera view stutters while turning.
+
+### Start and turn
+
+- [ ] Rooms list → **Scan a room** opens **Scan by turning around**, sideways: the advice (lights
+      on, stand in the open near the middle, never between a bed and a wall, phone sideways near
+      the chest, turn on your heels three times, a second spot for long or L-shaped rooms) and
+      the line saying the pictures go to YoungVista's server, where AI measures the room. **Mark
+      walls instead** opens today's marked scan; check it still works exactly as before.
+- [ ] **Start** asks for the camera the first time, then the camera opens: "Point at the floor"
+      until the floor is found, then **Start turning**.
+- [ ] Turning: a line runs across the screen; tilt down until the dot sits on it (both turn
+      green). Turn slowly on the spot: the inner circle of the dial (bottom left) fills in green,
+      the progress line says "Turn 1 of 3 · 9 of 24 · about 1 min left". After a full turn the
+      next starts by itself (level, then aiming up). Note the whole time (expected about 2
+      minutes).
+- [ ] Turn fast: "Turn slower". Cover the camera while turning past a part, then go on: that
+      part of the circle turns amber and the banner says "Go back to fill the gap: turn left (or
+      right) about …°"; turning back fills it. Walk a metre: "Stay on one spot".
+- [ ] **Next turn** appears once three quarters of a turn is done and moves on with the gaps.
+- [ ] After the third turn: **Measure the room** and **Add a second spot**. In the L-shaped room,
+      add the second spot at the other end and turn three times again.
+
+### Measuring
+
+- [ ] "Sending the pictures" with a bar and the megabytes sent, then "Waiting for the server",
+      then "Measuring your room" (AI is named only as "AI"). The camera keeps running meanwhile.
+- [ ] Turn airplane mode on while sending: after a while "Slow connection…", then "The pictures
+      did not all upload" with **Try again**. Airplane mode off, **Try again**: it carries on
+      (the file count does not start from 0).
+- [ ] With the server not deployed (or switched off): "The room could not be sent for
+      measuring" → **Mark the walls instead**: the marked scan starts in the same session, the
+      floor already found; finish and save a room as usual.
+- [ ] If the server takes over 3 minutes: "Measuring is taking too long" with **Keep waiting**
+      and **Mark the walls instead**.
+
+### The room the server found
+
+- [ ] The walls appear in the camera view on the real walls, unsure ones in amber, and the card
+      says the room's size. Write down the worst gap between a line and its real wall.
+- [ ] **Mark the amber walls**: aim at an amber wall's bottom edge (its top edge behind the bed)
+      and tap **Mark wall**: the wall moves to the mark and turns white. **Undo** brings the
+      server's wall back. A wall the server missed can be marked the same way.
+- [ ] **Done** (or **Looks right**) → Room found → Next → review: the plan shows the doors and
+      windows the server found, on the right walls. Tape-measure 3 walls before rescaling:
+
+| Room | Wall | Tape | App | Error (cm) | Marked by hand? |
+| ---- | ---- | ---- | --- | ---------- | --------------- |
+|      |      |      |     |            |                 |
+
+- [ ] Save → **See it in your room**: lined up from the scan, ghost walls on the real walls.
+- [ ] Firestore `rooms/{id}` has `tour` with the `scanId` and a spot per standing spot (its
+      `position` height about the phone's height above the floor, 1.2 to 1.6 m).
+- [ ] Delete that room: afterwards Storage has nothing under `users/{uid}/scans/{scanId}/`.
+- [ ] Scan again and close the scan after it has sent the pictures, without saving: within a
+      minute its folder in Storage is gone too.
+
 ## Feedback round 1: phone
 
 Phone: the owner's **iPhone 15**, in good light, with a room furnished with three or more pieces

@@ -89,7 +89,7 @@ export default function RoomsScreen() {
             ) : null}
             {rooms.status === 'ready' && rooms.data.length === 0 ? (
               <EmptyRooms
-                onScan={() => router.push('/scan')}
+                onScan={() => router.push('/scan-turn')}
                 onPlaceFreely={() => router.push('/place')}
               />
             ) : null}
@@ -113,7 +113,8 @@ export default function RoomsScreen() {
           className="absolute inset-x-0 bottom-0 flex-row gap-3 px-4"
           style={{ paddingBottom: insets.bottom + 16 }}
         >
-          <Button size="lg" className="flex-1" onPress={() => router.push('/scan')}>
+          {/* The turn-around scan; it offers the marked scan ("Mark walls instead") too. */}
+          <Button size="lg" className="flex-1" onPress={() => router.push('/scan-turn')}>
             <Icon as={LuScanLine} size={18} />
             <Text>Scan a room</Text>
           </Button>

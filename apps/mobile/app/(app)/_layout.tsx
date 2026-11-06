@@ -56,6 +56,8 @@ export default function AppRoutes() {
           name="rooms/[id]/furnish"
           options={{ title: 'Furnish', gestureEnabled: false }}
         />
+        {/* The turn-around scan: a camera screen, in landscape. */}
+        <Stack.Screen name="scan-turn" options={CAMERA_SCREEN} />
         <Stack.Screen
           name="rooms/[id]/edit"
           options={{ title: 'Edit room', gestureEnabled: false }}

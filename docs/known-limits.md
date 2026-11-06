@@ -14,6 +14,33 @@ it is planned for after the demo (see "After the demo" in [build.md](../build.md
 - **Accuracy:** about 5 cm in simulation. Real-phone numbers come from the device checklist; type
   one tape-measured wall on the review screen to correct the scale.
 
+### Scanning by turning around
+
+- **iPhone only.** It needs the room capture module (in builds from this round on); Android and
+  older builds open the marked scan instead.
+- **It needs the server and a connection.** About 25 to 45 MB of pictures go up per scan, and
+  the room comes back in about a minute. Without a connection, or if the server fails or takes
+  more than 3 minutes, the scan offers to mark the walls instead, in the same session. Closing
+  the app while sending or measuring ends the scan: it cannot carry on later.
+- **Accuracy is not proven yet.** The research estimates a 3 to 6% typical wall-length error
+  (about 10% at worst for one in ten walls), to be checked with a laser meter. Walls the server is
+  unsure of are shown in amber and offered for a mark by hand; a mark by hand replaces the
+  server's wall, so the worst case is the marked scan's accuracy.
+- **It reaches ARKit through ViroReact's own headers** (VROViewAR and its iOS session). A
+  ViroReact upgrade can break that; the scan then says it cannot reach the camera pictures and
+  offers to mark the walls instead.
+- **The 4:3 camera format depends on ARKit taking it.** ViroReact runs the tallest format (16:9 4K
+  on an iPhone 15); the scan switches to 4:3 1920 × 1440 if frames then keep coming, else it stays
+  on the session's format, which sees less of the floor and ceiling per picture, and whose
+  full-size pictures are about four times bigger to send.
+- **The tilt line is a guide,** placed for the middle of the view; the pictures are kept anywhere
+  within 8° of each turn's tilt.
+- **Doors and windows** the server is less than 30% sure of are left out; add them in the room
+  editor.
+- **The pictures are private and deleted** when the scan ends without a saved room, and with the
+  room when it is deleted. A room saved without the server's result (it failed, or the user
+  marked the walls before it came) keeps no pictures and has no tour.
+
 ## Camera view (AR)
 
 - A saved room opens on its page in 3D at once, with no camera. The camera view lines it up
