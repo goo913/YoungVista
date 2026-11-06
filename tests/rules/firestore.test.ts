@@ -213,6 +213,18 @@ describe('scan logs', () => {
   });
 });
 
+describe('scan fits', () => {
+  it('can be read by their owner only, and written by nobody but the server', async () => {
+    await seed('scanFits/s1', { ownerId: 'alice', status: 'queued' });
+    await assertSucceeds(db('alice').doc('scanFits/s1').get());
+    await assertFails(db('bob').doc('scanFits/s1').get());
+    await assertFails(db().doc('scanFits/s1').get());
+    await assertFails(db('alice').doc('scanFits/s1').update({ status: 'done' }));
+    await assertFails(db('alice').doc('scanFits/s2').set({ ownerId: 'alice', status: 'done' }));
+    await assertFails(db('alice').doc('scanFits/s1').delete());
+  });
+});
+
 describe('everything else', () => {
   it('is denied', async () => {
     await assertFails(db('alice').doc('users/alice').set({ hello: 'world' }));

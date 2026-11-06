@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // YoungVista Storage rules. Each user's files live under users/{uid}/ and only that user can
-// read or write them. Uploads must be images of at most 10 MB.
+// read or write them. Uploads must be images of at most 10 MB, or a scan's JSON manifest.
 service firebase.storage {
   match /b/{bucket}/o {
     match /users/{uid}/{allPaths=**} {
@@ -9,6 +9,14 @@ service firebase.storage {
       allow create, update: if request.auth != null && request.auth.uid == uid
         && request.resource.size <= 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
+    }
+
+    // A turn-around scan's upload (packages/core/src/turn-scan.ts): JPEG keyframes, as above,
+    // plus its JSON manifest, at most 2 MB.
+    match /users/{uid}/scans/{scanId}/capture.json {
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.size <= 2 * 1024 * 1024
+        && request.resource.contentType == 'application/json';
     }
   }
 }

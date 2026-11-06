@@ -55,6 +55,7 @@ export {
 export type { RoomFromPointsOptions } from './room';
 
 export * from './wall-marks';
+export * from './turn-scan';
 
 export { buildRoomFromWalls, isBuildRoomFailure, mergeWallObservations, coverage } from './scan';
 export type {

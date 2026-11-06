@@ -59,6 +59,15 @@ describe('users/{uid}/**', () => {
     await assertFails(upload('alice', 'users/alice/notes.txt', 16, 'text/plain'));
   });
 
+  it("takes a turn-around scan's JSON manifest, and no other JSON", async () => {
+    const scan = 'users/alice/scans/s1';
+    await assertSucceeds(upload('alice', `${scan}/capture.json`, 1024, 'application/json'));
+    await assertSucceeds(upload('alice', `${scan}/kf/000.jpg`, 1024));
+    await assertFails(upload('alice', `${scan}/capture.json`, 2 * MB + 1, 'application/json'));
+    await assertFails(upload('alice', `${scan}/other.json`, 16, 'application/json'));
+    await assertFails(upload('bob', `${scan}/capture.json`, 16, 'application/json'));
+  });
+
   it('denies everything outside users/', async () => {
     await assertFails(upload('alice', 'catalog/models/sofa.png', 16, 'image/png'));
     await assertFails(storage('alice').ref('catalog/models/sofa.png').getMetadata());

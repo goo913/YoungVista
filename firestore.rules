@@ -50,6 +50,13 @@ service cloud.firestore {
     // shares/{shareId}: a read-only snapshot for a private link. Anyone with the (long, random)
     // id can read it, nobody can list them, and only the owner of the shared room can create,
     // change or delete (revoke) it. ownerId and roomId can never change.
+    // scanFits/{scanId}: a turn-around scan's fitted walls (packages/core/src/turn-scan.ts),
+    // written only by the server; the owner reads it.
+    match /scanFits/{scanId} {
+      allow read: if isUser(resource.data.ownerId);
+      allow write: if false;
+    }
+
     match /shares/{shareId} {
       allow get: if true;
       allow list: if false;

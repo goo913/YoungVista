@@ -1,5 +1,5 @@
-# Checks, builds and deploys the website plus the Firestore and Storage rules on every push to
-# main (or by hand). Google Cloud auth is keyless (Workload Identity Federation).
+# Checks, builds and deploys the website, the Cloud Functions and the Firestore and Storage rules on
+# every push to main (or by hand). Google Cloud auth is keyless (Workload Identity Federation).
 name: Deploy
 
 on:
@@ -32,21 +32,21 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      # Only the website, the shared core and the root tools: the phone app's packages are not
-      # needed here.
+      # Only the website, the functions, the shared core and the root tools: the phone app's
+      # packages are not needed here.
       - name: Install
-        run: npm ci --workspace @youngvista/core --workspace @youngvista/web --include-workspace-root
+        run: npm ci --workspace @youngvista/core --workspace @youngvista/web --workspace @youngvista/functions --include-workspace-root
 
       - name: Type-check
         run: |
-          npm run typecheck --workspace @youngvista/core --workspace @youngvista/web
+          npm run typecheck --workspace @youngvista/core --workspace @youngvista/web --workspace @youngvista/functions
           npx tsc -p tests/rules
 
       - name: Lint
-        run: npx eslint packages/core apps/web tests eslint.config.js
+        run: npx eslint packages/core apps/web functions tests eslint.config.js
 
       - name: Unit tests
-        run: npm test --workspace @youngvista/core
+        run: npm test --workspace @youngvista/core --workspace @youngvista/functions
 
       # The Firestore and Storage emulators need Java 21+.
       - uses: actions/setup-java@v6
@@ -73,5 +73,7 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
 
-      - name: Deploy Hosting, Firestore and Storage
-        run: npx --yes "$FIREBASE_TOOLS" deploy --only hosting,firestore,storage --project young-vista --non-interactive
+      # --force: functions removed from the source are deleted, and the container image cleanup
+      # policy is set without asking.
+      - name: Deploy Hosting, Functions, Firestore and Storage
+        run: npx --yes "$FIREBASE_TOOLS" deploy --only hosting,functions,firestore,storage --project young-vista --non-interactive --force
