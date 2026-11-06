@@ -9,6 +9,7 @@
 import {
   buildPictureDoc,
   picturePath,
+  type AiPictureUse,
   type CapturePlatform,
   type PictureDoc,
   type RandomBytes,
@@ -269,8 +270,16 @@ export function queueFromText(text: string | null | undefined, uid: string): Pen
 
 /* What the room page shows. */
 
+/** What core's `pictureFromFirestore` says about a picture made by AI (components/ai). */
+export interface AiPictureFields {
+  kind?: 'ai';
+  /** The image it was made from, in Storage. */
+  sourcePath?: string;
+  sourceUse?: AiPictureUse;
+}
+
 /** A picture of the room on the server (its `rooms/{roomId}/pictures/{id}` record). */
-export interface UploadedPicture {
+export interface UploadedPicture extends AiPictureFields {
   id: string;
   /** Null while the server's timestamp is still on its way. */
   createdAt: Date | null;
@@ -279,7 +288,7 @@ export interface UploadedPicture {
   height: number;
 }
 
-export interface StripPicture {
+export interface StripPicture extends AiPictureFields {
   id: string;
   /** When it was taken or uploaded (ms), for sorting. */
   time: number;
@@ -292,6 +301,9 @@ export interface StripPicture {
   /** Not completely on the server yet. */
   pending: PendingPicture | null;
 }
+
+/** A picture made by AI: only the server makes them, so they are never waiting on the phone. */
+export const isAiPicture = (p: AiPictureFields): boolean => p.kind === 'ai';
 
 /**
  * The room's pictures, newest first: those still on their way from this phone, then (and merged
@@ -314,6 +326,9 @@ export function stripPictures(
       file: localFile(u.id),
       storagePath: u.storagePath,
       pending: null,
+      ...(u.kind === 'ai'
+        ? { kind: 'ai' as const, sourcePath: u.sourcePath, sourceUse: u.sourceUse }
+        : {}),
     });
   }
   for (const p of queue) {

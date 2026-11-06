@@ -9,7 +9,8 @@ const APP_ID = 'com.youngcorporation.youngvista';
 /** Young Corporation of America. Team IDs are not secret; APPLE_TEAM_ID overrides it. */
 const DEFAULT_APPLE_TEAM_ID = 'L276BBUKFM';
 
-const CAMERA_USE = 'YoungVista uses the camera to find the floor and walls of your room.';
+const CAMERA_USE =
+  'YoungVista uses the camera to find the floor and walls of your room, and to take photos of your room for AI pictures when you ask.';
 
 /**
  * Upright everywhere except the camera screens (scan, the room in the camera view, place
@@ -26,6 +27,12 @@ const IOS_ORIENTATIONS = [
 /** Shown once, the first time "Take picture" saves a picture (add-only access: no reading). */
 const SAVE_PHOTOS_USE =
   'YoungVista saves the pictures you take of your rooms to your photo library. It does not read your photos.';
+
+/** Only shown if iOS ever asks for the photo library: choosing a photo uses the system picker. */
+const PHOTOS_USE = 'YoungVista opens your photos only when you choose a photo of your room.';
+
+/** The app never records sound; ViroReact and the image picker still name the microphone. */
+const MICROPHONE_USE = 'YoungVista does not record sound.';
 
 /**
  * Saving a picture to the gallery needs no permission on Android 11 and newer (MediaStore), and
@@ -120,6 +127,17 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         'expo-media-library',
         { savePhotosPermission: SAVE_PHOTOS_USE, granularPermissions: ['photo'] },
       ],
+      // "AI: show my furniture in a photo" takes or chooses one photo of the room. Choosing uses
+      // the system picker, which needs no access to the library; the same words as below so no
+      // plugin overwrites another's.
+      [
+        'expo-image-picker',
+        {
+          cameraPermission: CAMERA_USE,
+          photosPermission: PHOTOS_USE,
+          microphonePermission: MICROPHONE_USE,
+        },
+      ],
       [
         '@reactvision/react-viro',
         {
@@ -127,8 +145,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           provider: 'none',
           ios: {
             cameraUsagePermission: CAMERA_USE,
-            microphoneUsagePermission: 'YoungVista does not record sound.',
-            photosPermission: 'YoungVista can show your photos when you ask it to.',
+            microphoneUsagePermission: MICROPHONE_USE,
+            photosPermission: PHOTOS_USE,
             savePhotosPermission: SAVE_PHOTOS_USE,
           },
           android: { xRMode: ['AR'] },

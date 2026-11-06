@@ -153,6 +153,12 @@ export interface ShareDoc<TTime = TimestampLike> {
 }
 
 /**
+ * What an AI picture (`ai-picture.ts`) was made from: a picture of the 3D view, a picture of the
+ * camera view with the furniture placed at true size, or a real photo of the room.
+ */
+export type AiPictureUse = 'render' | 'ar' | 'photo';
+
+/**
  * Firestore document `rooms/{roomId}/pictures/{pictureId}`: a final picture of the room. The
  * image itself is a JPEG in Storage at `storagePath`. Build it with `buildPictureDoc`.
  */
@@ -165,4 +171,10 @@ export interface PictureDoc<TTime = TimestampLike> {
   height: number;
   /** Where the picture was taken. */
   platform: CapturePlatform;
+  /** 'ai' for a picture made by AI (written by the server); missing for an exact picture. */
+  kind?: 'ai';
+  /** An AI picture's source: the image it was made from, in Storage (`aiSourcePath`). */
+  sourcePath?: string;
+  /** What an AI picture was made from. */
+  sourceUse?: AiPictureUse;
 }

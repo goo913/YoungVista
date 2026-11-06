@@ -23,7 +23,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useUser } from '@/lib/auth';
 import { formatDate } from '@/lib/format';
-import { stripPictures, uploadView, type StripPicture, type UploadView } from '@/lib/picture-state';
+import {
+  isAiPicture,
+  stripPictures,
+  uploadView,
+  type StripPicture,
+  type UploadView,
+} from '@/lib/picture-state';
 import {
   pictureUploads,
   uploadedFile,
@@ -34,7 +40,7 @@ import {
   type UploadsSnapshot,
 } from '@/lib/pictures';
 import { confirmDeletePicture } from './delete-picture';
-import { PictureViewer } from './picture-viewer';
+import { AiBadge, PictureViewer } from './picture-viewer';
 
 const STATUS_ICON: Record<UploadView['kind'], IconType> = {
   uploading: LuLoaderCircle,
@@ -214,13 +220,14 @@ function Tile({
 }) {
   const source = usePictureSource(picture);
   const when = formatDate(picture.time === Number.MAX_SAFE_INTEGER ? null : new Date(picture.time));
+  const ai = isAiPicture(picture);
   return (
     <Pressable
       onPress={onPress}
       onLongPress={onDelete}
       disabled={deleting}
       accessibilityRole="button"
-      accessibilityLabel={`Picture from ${when}${deleting ? ', being deleted' : status ? `. ${status.detail}` : ''}`}
+      accessibilityLabel={`${ai ? 'AI picture' : 'Picture'} from ${when}${deleting ? ', being deleted' : status ? `. ${status.detail}` : ''}`}
       accessibilityHint="Opens the picture. Press and hold to delete it."
       accessibilityActions={[{ name: 'delete', label: 'Delete picture' }]}
       onAccessibilityAction={(e) => {
@@ -242,6 +249,7 @@ function Tile({
         ) : (
           <Icon as={LuImageOff} size={22} className="text-muted-foreground" />
         )}
+        {ai ? <AiBadge className="absolute left-1 top-1" /> : null}
         {deleting ? (
           <View className="absolute inset-0 items-center justify-center gap-1 bg-black/40">
             <ActivityIndicator color="white" />

@@ -24,10 +24,23 @@ function WaitingScene() {
 const waitingScene = { scene: WaitingScene } as unknown as SceneEntry;
 export const arScene = { scene: ArScene } as unknown as SceneEntry;
 
-/** What the screens need from an AR navigator: rays for touches. */
+/** What ViroARSceneNavigator's `_takeScreenshot` resolves with (`url` is a file path). */
+export interface ArScreenshot {
+  success: boolean;
+  url?: string;
+  errorCode?: number;
+}
+
+/** What the screens need from an AR navigator: rays for touches, and pictures of the view. */
 export interface ArViewHandle {
   /** ViroARSceneNavigator's `unproject`, or null before the view exists. */
   unproject: ((point: V3) => Promise<unknown>) | null;
+  /**
+   * The camera view with the 3D scene, as a PNG in the app's temporary folder (not in Photos):
+   * ViroARSceneNavigator's `_takeScreenshot`, or null before the view exists. Used by AI
+   * pictures (components/ai/ar-ai-picture.tsx). Optional: the scan's handle has none.
+   */
+  takeScreenshot?: ((fileName: string) => Promise<ArScreenshot>) | null;
 }
 
 export const ArView = forwardRef<ArViewHandle, { ar: ArSceneAppProps }>(function ArView(
@@ -44,6 +57,13 @@ export const ArView = forwardRef<ArViewHandle, { ar: ArSceneAppProps }>(function
       get unproject() {
         const nav = navigator.current;
         return nav ? (point: V3) => nav._unproject(point) : null;
+      },
+      get takeScreenshot() {
+        const nav = navigator.current;
+        return nav
+          ? async (fileName: string) =>
+              ((await nav._takeScreenshot(fileName, false)) ?? { success: false }) as ArScreenshot
+          : null;
       },
     }),
     [],

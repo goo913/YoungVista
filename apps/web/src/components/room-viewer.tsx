@@ -43,6 +43,8 @@ export interface Furnish {
   catalog: CatalogIndex;
   /** Saves a picture of the 3D view to the room's pictures. */
   onSavePicture?: (jpeg: Blob, width: number, height: number) => Promise<void>;
+  /** Sends a picture of the 3D view to AI, which saves a photo-real one to the room's pictures. */
+  onAiPicture?: (jpeg: Blob, width: number, height: number) => Promise<void>;
 }
 
 interface RoomViewerProps {
@@ -290,6 +292,7 @@ export function RoomViewer({
                 handle={handle}
                 onModeChange={onModeChange}
                 onSavePicture={furnish?.onSavePicture}
+                onAiPicture={furnish?.onAiPicture}
               />
             </Suspense>
           </ErrorBoundary>

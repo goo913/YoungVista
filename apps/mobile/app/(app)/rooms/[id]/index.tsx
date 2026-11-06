@@ -1,7 +1,8 @@
 /**
  * A room: it opens straight onto the room in 3D with its furniture where it was left (no camera,
  * scan or line-up), then the ways to change it (furnish in 3D, see it in the camera view, edit
- * the walls), the plan and facts, the pictures, the private link, and renaming or deleting it.
+ * the walls), the plan and facts, the pictures, AI pictures from a photo, the private link, and
+ * renaming or deleting it.
  */
 import { formatArea, isFlatProduct, itemFootprint, roomArea } from '@youngvista/core';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -18,6 +19,7 @@ import {
   LuTriangleAlert,
   LuView,
 } from 'react-icons/lu';
+import { AiPhotoCard } from '@/components/ai/ai-photo';
 import { ConnectionBanner } from '@/components/connection-banner';
 import { FloorPlan, type PlanFurniture } from '@/components/floor-plan';
 import { PictureStrip } from '@/components/pictures/picture-strip';
@@ -196,6 +198,11 @@ export default function RoomScreen() {
                 : `${count} ${count === 1 ? 'piece' : 'pieces'} of furniture, shown at real size.`}
             </Text>
             <PictureStrip roomId={roomId} online={room.online} onTakePicture={openFurnish} />
+            <AiPhotoCard
+              summary={summary}
+              catalog={catalog.status === 'ready' ? catalog.data : null}
+              online={room.online}
+            />
             <ShareCard summary={summary} />
           </>
         ) : (

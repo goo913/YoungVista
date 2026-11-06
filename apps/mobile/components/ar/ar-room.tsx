@@ -82,6 +82,7 @@ import { useUnits } from '@/lib/units';
 import { useAutosave } from '@/lib/use-autosave';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/scan/coaching';
+import { ArAiPicture } from '@/components/ai/ar-ai-picture';
 import { ArFurnitureCard } from './ar-furniture-card';
 import { ArGestures } from './ar-gestures';
 import {
@@ -562,46 +563,52 @@ export function ArRoom({
                 ) : null}
               </View>
             </View>
-          ) : done && moving ? (
-            <ArCard>
-              <View className="gap-1">
-                <Text className="text-base font-semibold">Move the room</Text>
-                <Text className="text-muted-foreground text-xs">
-                  One finger drags the room along the floor, two fingers turn it. Line up the ghost
-                  walls with the real walls. The blue dot on the plan is you.
-                </Text>
-              </View>
-              <View className="flex-row flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onPress={turnQuarter}
-                  accessibilityLabel="Turn the room a quarter turn"
-                >
-                  <Icon as={LuRotateCw} size={14} />
-                  <Text>Turn 90°</Text>
-                </Button>
-                <Button variant="outline" size="sm" onPress={undoMove}>
-                  <Icon as={LuUndo2} size={14} />
-                  <Text>Undo</Text>
-                </Button>
-                <Button size="sm" className="flex-1" onPress={() => setMoving(null)}>
-                  <Text>Done</Text>
-                </Button>
-              </View>
-            </ArCard>
           ) : done ? (
-            <ArFurnitureCard
-              ar={ar}
-              controller={controller}
-              units={units}
-              hint={
-                design.state.items.length === 0
-                  ? 'Aim the dot where you want a piece, then tap Add furniture.'
-                  : 'Tap a piece to move it: drag it along the floor, turn it with two fingers.'
-              }
-              onAddError={(message) => setNote({ tone: 'error', title: message })}
-            />
+            // AI picture stays mounted while the room is moved, so a picture in progress goes on.
+            <View className="gap-2" pointerEvents="box-none">
+              <ArAiPicture view={view} scene={scene} roomId={summary.id} online={online} />
+              {moving ? (
+                <ArCard>
+                  <View className="gap-1">
+                    <Text className="text-base font-semibold">Move the room</Text>
+                    <Text className="text-muted-foreground text-xs">
+                      One finger drags the room along the floor, two fingers turn it. Line up the
+                      ghost walls with the real walls. The blue dot on the plan is you.
+                    </Text>
+                  </View>
+                  <View className="flex-row flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onPress={turnQuarter}
+                      accessibilityLabel="Turn the room a quarter turn"
+                    >
+                      <Icon as={LuRotateCw} size={14} />
+                      <Text>Turn 90°</Text>
+                    </Button>
+                    <Button variant="outline" size="sm" onPress={undoMove}>
+                      <Icon as={LuUndo2} size={14} />
+                      <Text>Undo</Text>
+                    </Button>
+                    <Button size="sm" className="flex-1" onPress={() => setMoving(null)}>
+                      <Text>Done</Text>
+                    </Button>
+                  </View>
+                </ArCard>
+              ) : (
+                <ArFurnitureCard
+                  ar={ar}
+                  controller={controller}
+                  units={units}
+                  hint={
+                    design.state.items.length === 0
+                      ? 'Aim the dot where you want a piece, then tap Add furniture.'
+                      : 'Tap a piece to move it: drag it along the floor, turn it with two fingers.'
+                  }
+                  onAddError={(message) => setNote({ tone: 'error', title: message })}
+                />
+              )}
+            </View>
           ) : null
         }
       />

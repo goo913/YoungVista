@@ -19,6 +19,7 @@ import { UnitsToggle } from '@/components/units-toggle';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { aiPictureErrorText, makeAiPicture } from '@/lib/ai-picture';
 import { useCatalog, type CatalogIndex, type CatalogState } from '@/lib/catalog';
 import { useDesignEditor } from '@/lib/design-editor';
 import { formatDate } from '@/lib/format';
@@ -174,9 +175,19 @@ function FurnishedRoom({
     },
     [user.uid, summary.id],
   );
+  const onAiPicture = useCallback(
+    async (jpeg: Blob, width: number, height: number) => {
+      try {
+        await makeAiPicture({ uid: user.uid, roomId: summary.id, jpeg, width, height });
+      } catch (error) {
+        throw new Error(aiPictureErrorText(error), { cause: error });
+      }
+    },
+    [user.uid, summary.id],
+  );
   const furnish = useMemo<Furnish>(
-    () => ({ editor, catalog, onSavePicture }),
-    [editor, catalog, onSavePicture],
+    () => ({ editor, catalog, onSavePicture, onAiPicture }),
+    [editor, catalog, onSavePicture, onAiPicture],
   );
   return (
     <RoomDetails

@@ -472,7 +472,7 @@ export const forgetCapture = deleteQuietly;
 
 /**
  * Deletes a picture of a room: from this phone (its upload, if it is on its way, and its files),
- * then its JPEG in Storage and its `rooms/{roomId}/pictures/{id}` record. A picture that never
+ * then its JPEG in Storage (with an AI picture's source) and its record. A picture that never
  * left the phone is deleted without a connection; one on the server needs it (`online`, from the
  * room's snapshot): then it fails at once with 'unavailable'. The copy in Photos stays.
  */
@@ -499,6 +499,8 @@ export async function deletePicture(input: {
       ? picture.storagePath
       : pictureStoragePath({ uid, roomId, id: picture.id });
   await deleteStorageFile(path);
+  // An AI picture's source image (its "Original") goes with it.
+  if (picture.sourcePath?.startsWith(own)) await deleteStorageFile(picture.sourcePath);
   try {
     await withTimeout(deleteDoc(doc(firestore(), 'rooms', roomId, 'pictures', picture.id)));
   } catch (error) {

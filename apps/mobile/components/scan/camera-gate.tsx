@@ -45,14 +45,14 @@ const COPY = {
     unsupported: 'This phone cannot scan rooms',
     unsupportedBody:
       'Scanning needs augmented reality (ARKit on iPhone, Google Play Services for AR on Android), which this phone does not support.',
-    ask: 'YoungVista uses the camera to find the floor and the walls of your room. No photos or video are kept or uploaded: only the floor plan, and a small technical log of the scan that helps us improve it.',
+    ask: 'YoungVista uses the camera to find the floor and the walls of your room. When you scan by turning around, pictures of the room go to YoungVista to measure it and to make its 360° pictures; they stay in your account. Marking the walls by hand uploads only the floor plan. Each scan also sends a small technical log that helps us improve scanning.',
     denied: 'To scan a room, turn on Camera for YoungVista in Settings, then come back.',
   },
   ar: {
     unsupported: 'This phone cannot show furniture in the camera view',
     unsupportedBody:
       'It needs augmented reality (ARKit on iPhone, Google Play Services for AR on Android), which this phone does not support. The 3D view works on every phone.',
-    ask: 'YoungVista uses the camera to show furniture at its real size in your room. No photos or video are kept or uploaded.',
+    ask: 'YoungVista uses the camera to show furniture at its real size in your room. Nothing from the camera is kept or uploaded, unless you make an AI picture.',
     denied:
       'To see furniture in your room, turn on Camera for YoungVista in Settings, then come back.',
   },

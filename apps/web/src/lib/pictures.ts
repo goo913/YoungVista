@@ -15,6 +15,7 @@ import {
   buildPictureDoc,
   pictureFromFirestore,
   picturePath,
+  type AiPictureUse,
   type CapturePlatform,
 } from '@youngvista/core';
 import { db } from './firestore';
@@ -29,6 +30,10 @@ export interface RoomPicture {
   width: number;
   height: number;
   platform: CapturePlatform;
+  /** 'ai': made by AI (lib/ai-picture.ts), from the image at `sourcePath`. */
+  kind?: 'ai';
+  sourcePath?: string;
+  sourceUse?: AiPictureUse;
 }
 
 /** The room's final pictures, newest first, kept up to date. */
@@ -113,15 +118,26 @@ export async function downloadPicture(picture: RoomPicture, fileName: string): P
   saveBlob(blob, fileName);
 }
 
-/** Deletes a picture: its file in Storage, then its record (which removes it from the gallery). */
+/**
+ * Deletes a picture: its file in Storage (and an AI picture's source image), then its record
+ * (which removes it from the gallery).
+ */
 export async function deletePicture(roomId: string, picture: RoomPicture): Promise<void> {
-  try {
-    await deleteObject(ref(storage, picture.storagePath));
-  } catch (error) {
-    // Already gone (an upload that never finished): the record still goes.
-    if (!(error instanceof FirebaseError && error.code === 'storage/object-not-found')) throw error;
+  const folder = picture.storagePath.slice(0, picture.storagePath.lastIndexOf('/') + 1);
+  const files = [picture.storagePath];
+  // Only an AI source next to the picture (core's `aiSourcePath`).
+  if (picture.sourcePath?.startsWith(folder)) files.push(picture.sourcePath);
+  for (const path of files) {
+    try {
+      await deleteObject(ref(storage, path));
+    } catch (error) {
+      // Already gone (an upload that never finished): the record still goes.
+      if (!(error instanceof FirebaseError && error.code === 'storage/object-not-found')) {
+        throw error;
+      }
+    }
+    urls.delete(path);
   }
-  urls.delete(picture.storagePath);
   await deleteDoc(doc(db, 'rooms', roomId, 'pictures', picture.id));
 }
 

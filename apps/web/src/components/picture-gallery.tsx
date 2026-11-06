@@ -5,9 +5,11 @@ import {
   LuImage,
   LuImageOff,
   LuLoaderCircle,
+  LuSparkles,
   LuTrash2,
   LuTriangleAlert,
 } from 'react-icons/lu';
+import { AI_USE_LABEL } from '@youngvista/core';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
@@ -18,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -54,7 +57,7 @@ export function PictureGallery({ roomId, roomName }: { roomId: string; roomName:
         <CardTitle>Pictures</CardTitle>
         <CardDescription>
           Final pictures of this room, newest first: from the phone app’s 3D view, or saved from the
-          3D view here.
+          3D view here. Pictures marked AI were made photo-real by AI.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3">
@@ -106,6 +109,20 @@ export function PictureGallery({ roomId, roomName }: { roomId: string; roomName:
 type Saving =
   { state: 'idle' } | { state: 'busy' } | { state: 'done' } | { state: 'failed'; message: string };
 
+/**
+ * An AI picture's original (what AI was given), opened in a new tab: AI can change details and
+ * sizes, and the original shows them exactly.
+ */
+function OriginalLink({ path }: { path: string }) {
+  const url = usePictureUrl(path);
+  if (url.status !== 'ready') return <span>Original</span>;
+  return (
+    <a href={url.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+      Original
+    </a>
+  );
+}
+
 function Picture({
   picture,
   roomId,
@@ -118,7 +135,13 @@ function Picture({
   onDeleted: () => void;
 }) {
   const url = usePictureUrl(picture.storagePath);
-  const caption = `${formatDate(picture.createdAt)} · ${picture.width} × ${picture.height} · ${PLATFORM[picture.platform]}`;
+  const ai = picture.kind === 'ai';
+  const caption = [
+    formatDate(picture.createdAt),
+    `${picture.width} × ${picture.height}`,
+    PLATFORM[picture.platform],
+    ...(ai ? [picture.sourceUse ? `AI, ${AI_USE_LABEL[picture.sourceUse]}` : 'AI'] : []),
+  ].join(' · ');
   const [saving, setSaving] = useState<Saving>({ state: 'idle' });
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -161,14 +184,20 @@ function Picture({
           target="_blank"
           rel="noreferrer"
           title="Open the full picture"
-          className="block overflow-hidden rounded-lg border bg-muted/40 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="relative block overflow-hidden rounded-lg border bg-muted/40 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <img
             src={url.url}
-            alt={`Picture of the room, ${caption}`}
+            alt={`${ai ? 'AI picture' : 'Picture'} of the room, ${caption}`}
             loading="lazy"
             className="aspect-[4/3] w-full object-cover transition-transform hover:scale-[1.02]"
           />
+          {ai ? (
+            <Badge className="absolute top-2 left-2 bg-black/70 text-white" aria-hidden>
+              <LuSparkles />
+              AI
+            </Badge>
+          ) : null}
         </a>
       ) : url.status === 'loading' ? (
         <Skeleton className="aspect-[4/3] rounded-lg" />
@@ -178,7 +207,15 @@ function Picture({
           Picture unavailable
         </div>
       )}
-      <figcaption className="text-xs text-muted-foreground">{caption}</figcaption>
+      <figcaption className="text-xs text-muted-foreground">
+        {caption}
+        {ai && picture.sourcePath ? (
+          <>
+            {' · '}
+            <OriginalLink path={picture.sourcePath} />
+          </>
+        ) : null}
+      </figcaption>
       <div className="flex items-center gap-1">
         <Button
           size="sm"

@@ -6,7 +6,8 @@
  * first thing seen: walls between the camera and the room fade out, "Top view" looks straight
  * down), flying through it, or walking in it. The ⚙ holds how a person moves and their walk
  * settings, the "?" says how to move, and the full-screen button shows the whole viewer full
- * screen. "Download picture" renders one clean frame at twice the screen's pixel ratio.
+ * screen. "Download picture" renders one clean frame at twice the screen's pixel ratio; "AI
+ * picture" sends that frame to AI, which saves a photo-real version to the room's pictures.
  *
  * On the owner's room page the furniture can be moved here too, by the phone's rules (core's
  * design reducer): drag a piece across the floor, turn it with the dot in front of it, or, walking
@@ -36,6 +37,7 @@ import {
   LuMaximize,
   LuMinimize,
   LuSettings,
+  LuSparkles,
   LuSquare,
 } from 'react-icons/lu';
 import {
@@ -118,6 +120,11 @@ export interface Room3DProps {
   onModeChange?: (mode: NavMode) => void;
   /** Saves a picture of the view to the room's pictures (the owner's page). */
   onSavePicture?: (jpeg: Blob, width: number, height: number) => Promise<void>;
+  /**
+   * Sends a picture of the view to AI, which saves a photo-real version to the room's pictures
+   * (the owner's page). Rejects with the words to show.
+   */
+  onAiPicture?: (jpeg: Blob, width: number, height: number) => Promise<void>;
 }
 
 export default function Room3D({
@@ -129,6 +136,7 @@ export default function Room3D({
   handle,
   onModeChange,
   onSavePicture,
+  onAiPicture,
 }: Room3DProps) {
   const meshes = useMemo(() => buildRoomMeshes(room), [room]);
   const [request, setRequest] = useState<{ view: View; n: number }>({ view: 'corner', n: 0 });
@@ -151,7 +159,7 @@ export default function Room3D({
   const register = useCallback((fn: Capture | null) => {
     capture.current = fn;
   }, []);
-  const [saving, setSaving] = useState<null | 'download' | 'room'>(null);
+  const [saving, setSaving] = useState<null | 'download' | 'room' | 'ai'>(null);
   const [saveNote, setSaveNote] = useState<{ ok: boolean; text: string } | null>(null);
   const initial = useMemo(() => cameraPreset(meshes, 'corner', 4 / 3), [meshes]);
   const touch = useMemo(() => {
@@ -211,6 +219,26 @@ export default function Room3D({
       setSaveNote({
         ok: false,
         text: 'The picture could not be saved to the room. Check your connection and try again.',
+      });
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  /** "AI picture": this view, made photo-real by AI, saved to the room's pictures. */
+  async function aiPicture() {
+    if (!capture.current || !onAiPicture) return;
+    setSaving('ai');
+    setSaveNote(null);
+    try {
+      const shot = await capture.current('image/jpeg');
+      if (!shot) throw new Error('The picture could not be taken. Try again.');
+      await onAiPicture(shot.blob, shot.width, shot.height);
+      setSaveNote({ ok: true, text: 'AI picture saved to this room’s pictures (below).' });
+    } catch (error) {
+      setSaveNote({
+        ok: false,
+        text: error instanceof Error && error.message ? error.message : 'No AI picture. Try again.',
       });
     } finally {
       setSaving(null);
@@ -317,6 +345,15 @@ export default function Room3D({
                     Save to this room’s pictures
                   </DropdownMenuItem>
                 </>
+              ) : null}
+              {onAiPicture ? (
+                <DropdownMenuItem
+                  onSelect={() => void aiPicture()}
+                  title="Sends this view to AI, which makes it photo-real with the same room and furniture, and saves it to this room’s pictures."
+                >
+                  <LuSparkles aria-hidden />
+                  AI picture (photo-real)
+                </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -452,6 +489,13 @@ export default function Room3D({
         {hud ? <WalkHud hud={hud} /> : null}
       </div>
       <p className="text-xs text-muted-foreground">{hint}</p>
+      {saving === 'ai' ? (
+        <p role="status" className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <LuLoaderCircle className="size-4 shrink-0 animate-spin" aria-hidden />
+          AI is making a photo-real picture of this view. It takes about half a minute; it is saved
+          to this room’s pictures.
+        </p>
+      ) : null}
       {saveNote ? (
         <p
           role="status"

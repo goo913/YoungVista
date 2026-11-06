@@ -4,7 +4,8 @@
  * saved to `rooms/{id}.design` about a second later, and changes made elsewhere (the website,
  * another phone) show up here while the user is not in the middle of one of their own
  * (furnish/design-follow.ts). "Take picture" captures the 3D view as it is (the final picture):
- * it goes to Photos and to the room's pictures (lib/pictures.ts).
+ * it goes to Photos and to the room's pictures (lib/pictures.ts). "AI picture" sends the same
+ * capture to AI, which makes it photo-real and adds it to the room's pictures (components/ai).
  */
 import {
   isFlatProduct,
@@ -17,7 +18,8 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LuBox, LuCamera, LuPlus, LuSquare, LuTriangleAlert } from 'react-icons/lu';
+import { LuBox, LuCamera, LuPlus, LuSparkles, LuSquare, LuTriangleAlert } from 'react-icons/lu';
+import { useAiPicture } from '@/components/ai/use-ai-picture';
 import { ConnectionBanner } from '@/components/connection-banner';
 import { FurniturePicker } from '@/components/furnish/furniture-picker';
 import { ItemPanel } from '@/components/furnish/item-panel';
@@ -257,6 +259,28 @@ function FurnishEditor({
 
   const dismissShot = useCallback(() => setShot(null), []);
 
+  // "AI picture": the 3D view, taken as "Take picture" takes it, made photo-real by AI
+  // (components/ai/use-ai-picture.tsx).
+  const ai = useAiPicture({ roomId: summary.id, online });
+  const aiPicture = () => {
+    const view = view3d.current;
+    if (capturing || !view) return;
+    void ai.start({
+      use: 'render',
+      source: async () => {
+        if (!sceneCaptureAvailable) throw new Error('This build cannot take pictures.');
+        setCapturing(true);
+        try {
+          await view.whenModelsReady(MODELS_WAIT_MS);
+          await wait(SETTLE_MS);
+          return (await view.capture()).uri;
+        } finally {
+          setCapturing(false);
+        }
+      },
+    });
+  };
+
   /**
    * "Take picture": waits for the models still loading, hides the selection marks for a moment,
    * captures the 3D view, keeps the picture in the upload queue and saves it to Photos.
@@ -405,8 +429,9 @@ function FurnishEditor({
             />
           ) : null}
         </View>
-        {shot || state.notice ? (
+        {shot || state.notice || ai.card ? (
           <View className="absolute inset-x-3 bottom-3 gap-2" pointerEvents="box-none">
+            {ai.card}
             {shot ? (
               <ShotNotice
                 shot={shot}
@@ -458,12 +483,12 @@ function FurnishEditor({
                 ? 'Add a piece, then drag it where you want it. It snaps to walls.'
                 : `${state.items.length} ${state.items.length === 1 ? 'piece' : 'pieces'}. Tap one to move, turn or remove it.`}
             </Text>
-            <View className="flex-row gap-3">
-              <Button size="lg" className="flex-1 px-4" onPress={() => setPicking(true)}>
-                <Icon as={LuPlus} size={18} />
-                <Text>Add furniture</Text>
-              </Button>
-              {mode === '3d' ? (
+            <Button size="lg" className="px-4" onPress={() => setPicking(true)}>
+              <Icon as={LuPlus} size={18} />
+              <Text>Add furniture</Text>
+            </Button>
+            {mode === '3d' ? (
+              <View className="flex-row gap-3">
                 <Button
                   size="lg"
                   variant="outline"
@@ -473,10 +498,21 @@ function FurnishEditor({
                   accessibilityHint="Takes a picture of the room as the 3D view shows it, and saves it to Photos and to the room."
                 >
                   <Icon as={LuCamera} size={18} />
-                  <Text>{capturing ? 'Taking…' : 'Take picture'}</Text>
+                  <Text>{capturing && !ai.busy ? 'Taking…' : 'Take picture'}</Text>
                 </Button>
-              ) : null}
-            </View>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="flex-1 px-4"
+                  onPress={aiPicture}
+                  disabled={capturing || ai.busy}
+                  accessibilityHint="AI makes a photo-real picture of the 3D view, with the same room and furniture, and saves it to the room."
+                >
+                  <Icon as={LuSparkles} size={18} />
+                  <Text>{ai.busy ? 'AI working…' : 'AI picture'}</Text>
+                </Button>
+              </View>
+            ) : null}
           </View>
         )}
       </View>
@@ -499,6 +535,7 @@ function FurnishEditor({
           dispatch({ type: 'add', productId: item.id });
         }}
       />
+      {ai.modals}
     </View>
   );
 }

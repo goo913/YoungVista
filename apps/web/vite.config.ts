@@ -16,9 +16,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 1200,
     rolldownOptions: {
       output: {
-        // Vendor code in its own long-cached chunks. Firestore and Storage are left out of the
-        // "firebase" chunk: they stay with the lazily loaded pages that use them, so the sign-in
-        // page does not download them. three.js and React Three Fiber only load with the 3D view.
+        // Vendor code in its own long-cached chunks. Firestore, Storage and Functions (AI
+        // pictures) are left out of the "firebase" chunk: they stay with the lazily loaded pages
+        // that use them, so the sign-in page does not download them. three.js and React Three
+        // Fiber only load with the 3D view.
         chunkFileNames: (chunk) =>
           chunk.moduleIds.some((id) => /[\\/]@firebase[\\/]firestore[\\/]/.test(id))
             ? 'assets/firestore-[hash].js'
@@ -32,7 +33,7 @@ export default defineConfig({
           groups: [
             {
               name: 'firebase',
-              test: /[\\/]node_modules[\\/](?:@firebase[\\/](?!firestore|webchannel-wrapper|storage)|firebase[\\/](?!firestore|storage))/,
+              test: /[\\/]node_modules[\\/](?:@firebase[\\/](?!firestore|webchannel-wrapper|storage|functions)|firebase[\\/](?!firestore|storage|functions))/,
               priority: 30,
             },
             {

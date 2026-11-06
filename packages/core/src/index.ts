@@ -233,6 +233,7 @@ export {
 export type { RandomBytes } from './share';
 
 export { picturePath, buildPictureDoc, pictureFromFirestore } from './picture';
+export * from './ai-picture';
 
 export { parseCatalog } from './catalog-parse';
 
