@@ -66,5 +66,7 @@ export function noticeText(
       return `There is no free space for the ${inSentence(productName(notice.productId))}. Move or remove something first.`;
     case 'removed':
       return `Removed the ${inSentence(productName(notice.item.productId))}.`;
+    case 'updated':
+      return 'Furniture updated: it was changed on the website or another phone.';
   }
 }
