@@ -38,7 +38,7 @@ import {
 } from '@/lib/rooms';
 import { cn } from '@/lib/utils';
 
-type Room = Pick<RoomSummary, 'id' | 'ownerId' | 'name' | 'shareId'>;
+type Room = Pick<RoomSummary, 'id' | 'ownerId' | 'name' | 'shareId' | 'tour'>;
 
 /**
  * A room's "…" menu: rename it, or delete it (after asking) with its pictures and its private
@@ -213,9 +213,10 @@ function DeleteRoomDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete “{room.name}”?</AlertDialogTitle>
           <AlertDialogDescription>
-            The room, its furniture and its pictures are deleted for good, on the phone and the
-            website{room.shareId ? ', and its private link stops working' : ''}. This cannot be
-            undone.
+            The room, its furniture and its pictures
+            {room.tour ? ' (the 360° pictures and the scan too)' : ''} are deleted for good, on the
+            phone and the website{room.shareId ? ', and its private link stops working' : ''}. This
+            cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error ? (

@@ -58,7 +58,7 @@ export function shareView(room: ShareRoom, snapshot: ShareSnapshot): ShareView {
       kind: 'none',
       canCreate: room.hasPlan,
       text: room.hasPlan
-        ? 'Anyone with the link can see this room and its furniture on the website, without signing in. You can turn it off at any time.'
+        ? 'Anyone with the link can see this room, its furniture and any 360° pictures of it on the website, without signing in. You can turn it off at any time.'
         : 'Finish the floor plan before sharing this room.',
     };
   }

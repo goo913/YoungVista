@@ -13,11 +13,16 @@ let env: RulesTestEnvironment;
 beforeAll(async () => {
   env = await initializeTestEnvironment({
     projectId: 'demo-young-vista',
+    // Firestore too: shared 360° pictures are checked against their link's document.
+    firestore: { rules: readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8') },
     storage: { rules: readFileSync(new URL('../../storage.rules', import.meta.url), 'utf8') },
   });
 });
 afterAll(() => env.cleanup());
-beforeEach(() => env.clearStorage());
+beforeEach(async () => {
+  await env.clearStorage();
+  await env.clearFirestore();
+});
 
 const storage = (uid?: string) =>
   (uid ? env.authenticatedContext(uid) : env.unauthenticatedContext()).storage();
@@ -71,5 +76,53 @@ describe('users/{uid}/**', () => {
   it('denies everything outside users/', async () => {
     await assertFails(upload('alice', 'catalog/models/sofa.png', 16, 'image/png'));
     await assertFails(storage('alice').ref('catalog/models/sofa.png').getMetadata());
+  });
+});
+
+describe("a shared room's 360° pictures", () => {
+  const shareId = 'Xk2v9QpLm4Rt7Wz1Yb8NcD5f';
+  const pano = 'users/alice/scans/s1/pano/spot-0.jpg';
+
+  async function seed(file: string, metadata: Record<string, string>, shareOwner?: string) {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .storage()
+        .ref(file)
+        .put(new Uint8Array(16), { contentType: 'image/jpeg', customMetadata: metadata });
+      if (shareOwner) {
+        await ctx.firestore().doc(`shares/${shareId}`).set({ ownerId: shareOwner, roomId: 'r1' });
+      }
+    });
+  }
+
+  it('can be read by anyone while the link that marks them is on', async () => {
+    await seed(pano, { shareId }, 'alice');
+    await assertSucceeds(storage().ref(pano).getMetadata());
+    await assertSucceeds(storage('bob').ref(pano).getMetadata());
+    // Never listed, and never written by others.
+    await assertFails(storage().ref('users/alice/scans/s1/pano').listAll());
+    await assertFails(upload('bob', pano, 16));
+    await assertFails(storage('bob').ref(pano).delete());
+    // Turning the link off closes them.
+    await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc(`shares/${shareId}`).delete());
+    await assertFails(storage().ref(pano).getMetadata());
+    await assertSucceeds(storage('alice').ref(pano).getMetadata());
+  });
+
+  it('stay private without a mark, with a link of another owner, or outside pano/', async () => {
+    await seed(pano, {}, 'alice');
+    await assertFails(storage().ref(pano).getMetadata());
+    await seed('users/alice/scans/s1/kf/000.jpg', { shareId });
+    await assertFails(storage().ref('users/alice/scans/s1/kf/000.jpg').getMetadata());
+    await seed(pano, { shareId }, 'mallory');
+    await assertFails(storage().ref(pano).getMetadata());
+  });
+
+  it('are marked by their owner only', async () => {
+    await seed(pano, {});
+    await assertSucceeds(
+      storage('alice').ref(pano).updateMetadata({ customMetadata: { shareId } }),
+    );
+    await assertFails(storage('bob').ref(pano).updateMetadata({ customMetadata: { shareId } }));
   });
 });

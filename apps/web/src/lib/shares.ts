@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { FirebaseError } from 'firebase/app';
 import {
   Timestamp,
+  deleteField,
   doc,
   onSnapshot,
   serverTimestamp,
@@ -10,14 +11,18 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import {
+  TOUR_SHARE_METADATA,
   buildShareDoc,
   designFromFirestore,
   generateShareId,
   isShareId,
   roomFromFirestore,
+  roomTourFromFirestore,
+  roomTourToFirestore,
   shareUrl,
   type Design,
   type Room,
+  type RoomTour,
   type UnitSystem,
 } from '@youngvista/core';
 import { db } from './firestore';
@@ -32,6 +37,8 @@ export interface SharedRoom {
   /** Null when the snapshot has no usable floor plan. */
   room: Room | null;
   design: Design;
+  /** The room's 360° pictures, when they are shared with it. */
+  tour: RoomTour | null;
   /** When the snapshot was taken or last refreshed. */
   updatedAt: Date | null;
 }
@@ -48,6 +55,7 @@ function toShared(id: string, data: DocumentData): SharedRoom {
     units: data.units === 'metric' ? 'metric' : 'imperial',
     room: roomFromFirestore(data.room),
     design: designFromFirestore(data.design),
+    tour: roomTourFromFirestore(data.tour),
     updatedAt: toDate(data.updatedAt) ?? toDate(data.createdAt),
   };
 }
@@ -116,24 +124,57 @@ function snapshotOf(room: RoomSummary) {
   };
 }
 
-/** Creates a private link: the snapshot and `rooms/{id}.shareId`, in one write. */
+/**
+ * Marks the room's 360° pictures as shared through `shareId` (storage.rules lets the link's
+ * viewers read a marked picture while the link exists). Returns the tour to copy into the
+ * snapshot; null when the room has none. Throws when the pictures could not be marked.
+ */
+async function shareTourPictures(room: RoomSummary, shareId: string): Promise<RoomTour | null> {
+  if (!room.tour) return null;
+  const tour = room.tour;
+  const [{ storage }, { ref, updateMetadata }] = await Promise.all([
+    import('./storage'),
+    import('firebase/storage'),
+  ]);
+  await Promise.all(
+    tour.spots.map((s) =>
+      updateMetadata(ref(storage, s.storagePath), {
+        customMetadata: { [TOUR_SHARE_METADATA]: shareId },
+      }),
+    ),
+  );
+  return tour;
+}
+
+/**
+ * Creates a private link: the snapshot and `rooms/{id}.shareId`, in one write. A room with 360°
+ * pictures shares them too; if they cannot be marked as shared, the link shares the room without
+ * them (the share card says so).
+ */
 export async function createShare(room: RoomSummary): Promise<string> {
   const shareId = generateShareId(randomBytes);
+  const tour = await shareTourPictures(room, shareId).catch(() => null);
   const batch = writeBatch(db);
   batch.set(
     doc(db, 'shares', shareId),
-    buildShareDoc(snapshotOf(room), {
-      roomId: room.id,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    }),
+    buildShareDoc(
+      { ...snapshotOf(room), tour },
+      {
+        roomId: room.id,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+    ),
   );
   batch.update(doc(db, 'rooms', room.id), { shareId });
   await batch.commit();
   return shareId;
 }
 
-/** Refreshes the shared copy with the room as it is now. The link stays the same. */
+/**
+ * Refreshes the shared copy with the room as it is now, 360° pictures included. The link stays
+ * the same.
+ */
 export async function updateShare(room: RoomSummary, shareId: string): Promise<void> {
   const {
     name,
@@ -144,11 +185,13 @@ export async function updateShare(room: RoomSummary, shareId: string): Promise<v
     roomId: room.id,
     createdAt: null,
   });
+  const tour = await shareTourPictures(room, shareId);
   await updateDoc(doc(db, 'shares', shareId), {
     name,
     units,
     room: stored,
     design,
+    tour: tour ? roomTourToFirestore(tour) : deleteField(),
     updatedAt: serverTimestamp(),
   });
 }

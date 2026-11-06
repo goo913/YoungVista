@@ -9,13 +9,14 @@ import {
   useState,
 } from 'react';
 import { useSearchParams } from 'react-router';
-import { LuBox, LuLoaderCircle, LuMap, LuPlus, LuTriangleAlert } from 'react-icons/lu';
+import { LuBox, LuLoaderCircle, LuMap, LuPlus, LuRotate3D, LuTriangleAlert } from 'react-icons/lu';
 import {
   noticeText,
   placementProblem,
   selectedItem,
   type CatalogItem,
   type Room,
+  type RoomTour,
   type UnitSystem,
 } from '@youngvista/core';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -34,8 +35,9 @@ import { useFullscreen } from '@/lib/fullscreen';
 import type { FurnitureEntry } from '@/lib/furniture';
 import { cn } from '@/lib/utils';
 
-// three.js and React Three Fiber load only when the 3D tab opens.
+// three.js and React Three Fiber load only when the 3D or 360° tab opens.
 const Room3D = lazy(() => import('@/components/room-3d'));
+const TourView = lazy(() => import('@/components/tour/tour-view'));
 
 /** Furnishing the room on the owner's page: the design editor and the catalog. */
 export interface Furnish {
@@ -56,6 +58,8 @@ interface RoomViewerProps {
   planTitle: string;
   /** The owner's page: add, move, turn, copy, recolour and remove furniture. */
   furnish?: Furnish | null;
+  /** The room's real 360° pictures (a turn-around scan): adds the "360°" tab. */
+  tour?: RoomTour | null;
 }
 
 /** Keys that turn the selected piece: ⇧R and [ counter-clockwise, R and ] clockwise. */
@@ -67,10 +71,10 @@ function turnKey(e: KeyboardEvent): number | null {
 }
 
 /**
- * The room's plan and 3D view as tabs (the open tab is kept in the address, `?view=3d`), and on
- * the owner's page everything to furnish it: "Add furniture", the selected piece's panel, what an
- * action did, and the save status. The full-screen button (3D) shows this whole viewer full
- * screen.
+ * The room's plan and 3D view as tabs, plus its real 360° pictures when it has them (the open tab
+ * is kept in the address, `?view=3d` or `?view=360`), and on the owner's page everything to
+ * furnish it: "Add furniture", the selected piece's panel, what an action did, and the save
+ * status. The full-screen button (3D and 360°) shows this whole viewer full screen.
  */
 export function RoomViewer({
   room,
@@ -79,9 +83,11 @@ export function RoomViewer({
   units,
   planTitle,
   furnish = null,
+  tour = null,
 }: RoomViewerProps) {
   const [params, setParams] = useSearchParams();
-  const view = params.get('view') === '3d' ? '3d' : 'plan';
+  const asked = params.get('view');
+  const view = asked === '3d' ? '3d' : asked === '360' && tour ? '360' : 'plan';
   const root = useRef<HTMLDivElement>(null);
   const fullscreen = useFullscreen(root);
   const [mode, setMode] = useState<NavMode>('orbit');
@@ -240,7 +246,7 @@ export function RoomViewer({
         onValueChange={(next) =>
           setParams(
             (p) => {
-              if (next === '3d') p.set('view', '3d');
+              if (next === '3d' || next === '360') p.set('view', next);
               else p.delete('view');
               return p;
             },
@@ -259,6 +265,12 @@ export function RoomViewer({
               <LuBox aria-hidden />
               3D
             </TabsTrigger>
+            {tour ? (
+              <TabsTrigger value="360" title="Look around in real pictures of the room">
+                <LuRotate3D aria-hidden />
+                360°
+              </TabsTrigger>
+            ) : null}
           </TabsList>
           {editor ? (
             <div className="flex items-center gap-3">
@@ -297,6 +309,21 @@ export function RoomViewer({
             </Suspense>
           </ErrorBoundary>
         </TabsContent>
+        {tour ? (
+          <TabsContent value="360" className={cn(fullscreen.active && 'flex min-h-0 flex-col')}>
+            <ErrorBoundary fallback={() => <ViewerFailed />}>
+              <Suspense fallback={<ViewerLoading label="Loading the 360° view" />}>
+                <TourView
+                  tour={tour}
+                  room={room}
+                  furniture={furniture}
+                  name={name}
+                  fullscreen={fullscreen}
+                />
+              </Suspense>
+            </ErrorBoundary>
+          </TabsContent>
+        ) : null}
       </Tabs>
 
       {editor && dispatch ? (
@@ -360,14 +387,14 @@ export function RoomViewer({
   );
 }
 
-function ViewerLoading() {
+function ViewerLoading({ label = 'Loading the 3D view' }: { label?: string }) {
   return (
     <div
       role="status"
       className="flex aspect-square max-h-[75vh] w-full items-center justify-center gap-2 rounded-lg border bg-muted/40 text-sm text-muted-foreground sm:aspect-[16/10]"
     >
       <LuLoaderCircle className="size-5 animate-spin" aria-hidden />
-      Loading the 3D view
+      {label}
     </div>
   );
 }
@@ -377,7 +404,7 @@ function ViewerFailed() {
     <div className="flex aspect-square max-h-[75vh] w-full flex-col items-center justify-center gap-3 rounded-lg border bg-muted/40 p-6 text-center text-sm sm:aspect-[16/10]">
       <LuTriangleAlert className="size-6 text-destructive" aria-hidden />
       <p className="max-w-sm text-muted-foreground">
-        The 3D view could not load. Check your connection, then reload the page.
+        This view could not load. Check your connection, then reload the page.
       </p>
       <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
         Reload

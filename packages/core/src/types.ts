@@ -7,6 +7,7 @@
  * - "Seen from above" means looking down the -Y axis with +X to the right, so +Z points
  *   toward the bottom of the screen (this is also how an SVG plan with y = z is drawn).
  */
+import type { RoomTour } from './turn-scan';
 
 /** A point or direction on the floor plane (metres). */
 export interface Vec2 {
@@ -150,6 +151,8 @@ export interface ShareDoc<TTime = TimestampLike> {
   units: UnitSystem;
   room: StoredRoom;
   design: Design;
+  /** The room's 360° tour, when it has one and its pictures are shared (see tour.ts). */
+  tour?: RoomTour;
 }
 
 /**

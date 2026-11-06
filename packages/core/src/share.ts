@@ -4,7 +4,9 @@
  * refresh it, and deletes it to revoke the link; `rooms/{roomId}.shareId` points at the active one.
  */
 import type { RoomDoc, ShareDoc, StoredRoom } from './types';
+import type { RoomTour } from './turn-scan';
 import { designToFirestore } from './design';
+import { roomTourToFirestore } from './tour';
 
 /** Default share id length: 24 letters and digits, about 143 bits of randomness. */
 export const SHARE_ID_LENGTH = 24;
@@ -67,10 +69,13 @@ const copyStoredRoom = (room: StoredRoom): StoredRoom => ({
 /**
  * The `shares/{shareId}` snapshot of a room document. Pass `createdAt` (and `updatedAt` when
  * refreshing) as server timestamps. The result is a deep copy with no `undefined` fields, ready
- * for `setDoc`.
+ * for `setDoc`. A `tour` is copied only when given: its pictures must be marked as shared first
+ * (`TOUR_SHARE_METADATA`), or the link's viewers cannot load them.
  */
 export function buildShareDoc<TTime>(
-  room: Pick<RoomDoc<unknown>, 'ownerId' | 'name' | 'units' | 'room' | 'design'>,
+  room: Pick<RoomDoc<unknown>, 'ownerId' | 'name' | 'units' | 'room' | 'design'> & {
+    tour?: RoomTour | null;
+  },
   ids: { roomId: string; createdAt: TTime; updatedAt?: TTime },
 ): ShareDoc<TTime> {
   const doc: ShareDoc<TTime> = {
@@ -83,5 +88,6 @@ export function buildShareDoc<TTime>(
     design: designToFirestore(room.design ?? { items: [] }),
   };
   if (ids.updatedAt !== undefined) doc.updatedAt = ids.updatedAt;
+  if (room.tour) doc.tour = roomTourToFirestore(room.tour);
   return doc;
 }

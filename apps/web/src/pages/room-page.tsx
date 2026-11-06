@@ -232,6 +232,7 @@ function RoomDetails({
               units={units}
               planTitle={`Floor plan of ${summary.name}, ${formatArea(roomArea(room), units)}`}
               furnish={furnish}
+              tour={summary.tour}
             />
           </CardContent>
         </Card>

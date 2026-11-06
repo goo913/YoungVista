@@ -67,6 +67,8 @@ export default function AppRoutes() {
         <Stack.Screen name="scan" options={CAMERA_SCREEN} />
         <Stack.Screen name="rooms/[id]/ar" options={CAMERA_SCREEN} />
         <Stack.Screen name="place" options={CAMERA_SCREEN} />
+        {/* The room's real 360° pictures: full screen, in landscape. */}
+        <Stack.Screen name="rooms/[id]/tour" options={CAMERA_SCREEN} />
       </Stack>
       <ToastHost />
     </View>

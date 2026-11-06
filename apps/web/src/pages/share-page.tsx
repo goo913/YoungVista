@@ -121,6 +121,7 @@ function SharedRoomView({ shared }: { shared: SharedRoom }) {
                   name={name}
                   units={units}
                   planTitle={`Floor plan of ${name}, ${formatArea(roomArea(room), units)}`}
+                  tour={shared.tour}
                 />
               </CardContent>
             </Card>

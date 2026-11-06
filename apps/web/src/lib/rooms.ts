@@ -15,15 +15,21 @@ import {
   where,
   type DocumentData,
 } from 'firebase/firestore';
+// Types only: Storage itself loads when a room is deleted.
+import type { FirebaseStorage, StorageReference } from 'firebase/storage';
 import {
+  captureFolder,
   designFromFirestore,
   designToFirestore,
   designsEqual,
   pictureFromFirestore,
   roomFromFirestore,
   roomToFirestore,
+  roomTourFromFirestore,
+  toursEqual,
   type Design,
   type Room,
+  type RoomTour,
   type SnapshotSource,
   type StoredRoom,
   type UnitSystem,
@@ -43,6 +49,8 @@ export interface RoomSummary {
   design: Design;
   /** The active share link's id, or null. */
   shareId: string | null;
+  /** The 360° pictures of a turn-around scan (`rooms/{id}.tour`), or null. */
+  tour: RoomTour | null;
 }
 
 export type Loadable<T> =
@@ -51,7 +59,7 @@ export type Loadable<T> =
   | { status: 'missing' }
   | { status: 'error'; message: string };
 
-function toSummary(id: string, data: DocumentData): RoomSummary {
+export function toSummary(id: string, data: DocumentData): RoomSummary {
   const name =
     typeof data.name === 'string' && data.name.trim() ? data.name.trim() : 'Untitled room';
   const room = roomFromFirestore(data.room);
@@ -65,6 +73,7 @@ function toSummary(id: string, data: DocumentData): RoomSummary {
     stored: room ? roomToFirestore(room) : null,
     design: designFromFirestore(data.design),
     shareId: typeof data.shareId === 'string' && data.shareId ? data.shareId : null,
+    tour: roomTourFromFirestore(data.tour),
   };
 }
 
@@ -80,6 +89,7 @@ function keepUnchanged(prev: RoomSummary | null, next: RoomSummary): RoomSummary
     out.stored = prev.stored;
   }
   if (designsEqual(prev.design, next.design)) out.design = prev.design;
+  if (toursEqual(prev.tour, next.tour)) out.tour = prev.tour;
   return out;
 }
 
@@ -202,16 +212,33 @@ const ignoreMissing = (error: unknown) => {
   throw error;
 };
 
+/** Every file under a Storage folder, however deep (`listAll` lists one level). */
+async function listFolder(storage: FirebaseStorage, path: string): Promise<StorageReference[]> {
+  const { listAll, ref } = await import('firebase/storage');
+  const files: StorageReference[] = [];
+  const pending = [ref(storage, path)];
+  for (let folder = pending.pop(); folder; folder = pending.pop()) {
+    const page = await listAll(folder);
+    files.push(...page.items);
+    pending.push(...page.prefixes);
+  }
+  return files;
+}
+
 /**
  * Deletes a room and everything that belongs to it, in the order the rules need (the pictures'
  * rule reads the room's owner, so the room goes last):
  *   1. every picture: its file in Storage (`users/{uid}/rooms/{roomId}/pictures/*`, records or
  *      not) and its record (`rooms/{roomId}/pictures/*`);
- *   2. the private link's snapshot (`shares/{shareId}`), if the room has one;
- *   3. the room itself.
+ *   2. a turn-around scan's files (`captureFolder(uid, tour.scanId)`: keyframes, manifest and the
+ *      360° pictures), if the room has a tour;
+ *   3. the private link's snapshot (`shares/{shareId}`), if the room has one;
+ *   4. the room itself.
  * Safe to run again after a failure: what is already gone is skipped.
  */
-export async function deleteRoom(room: Pick<RoomSummary, 'id' | 'ownerId' | 'shareId' | 'name'>) {
+export async function deleteRoom(
+  room: Pick<RoomSummary, 'id' | 'ownerId' | 'shareId' | 'name' | 'tour'>,
+) {
   // Storage loads only now, so the rooms list does not download it.
   const [{ storage }, { deleteObject, listAll, ref }] = await Promise.all([
     import('./storage'),
@@ -231,6 +258,11 @@ export async function deleteRoom(room: Pick<RoomSummary, 'id' | 'ownerId' | 'sha
       await deleteDoc(d.ref);
     }),
   );
+  if (room.tour) {
+    // The scan's folder is listed first, then every file in it is deleted.
+    const scanFiles = await listFolder(storage, captureFolder(room.ownerId, room.tour.scanId));
+    await Promise.all(scanFiles.map((f) => deleteObject(f).catch(ignoreMissing)));
+  }
   if (room.shareId) {
     // A link turned off elsewhere is already gone (and the rules cannot check a missing one).
     const share = await getDoc(doc(db, 'shares', room.shareId));

@@ -18,6 +18,7 @@ import { Platform, Share } from 'react-native';
 import { isShareId } from '@youngvista/core';
 import { errorCode } from './auth-errors';
 import { firestore } from './firebase';
+import { shareTourPictures } from './tour';
 import {
   newShareDoc,
   newShareId,
@@ -79,12 +80,15 @@ export async function createShare(source: ShareSource): Promise<string> {
   batch.set(doc(firestore(), 'shares', shareId), newShareDoc(source, serverTimestamp()));
   batch.update(doc(firestore(), 'rooms', source.roomId), { shareId });
   await batch.commit();
+  // The room's 360° pictures go with it when they can (the link works either way).
+  await shareTourPictures(source.roomId, shareId).catch(() => {});
   return shareId;
 }
 
 /** Refreshes the shared copy with the room as it is now. The link stays the same. */
 export async function updateShare(source: ShareSource, shareId: string): Promise<void> {
   await updateDoc(doc(firestore(), 'shares', shareId), shareUpdate(source, serverTimestamp()));
+  await shareTourPictures(source.roomId, shareId).catch(() => {});
 }
 
 /**

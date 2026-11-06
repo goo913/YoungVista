@@ -92,7 +92,7 @@ export function ShareCard({ room }: { room: RoomSummary }) {
       <>
         <p className="text-sm text-muted-foreground">
           {room.stored
-            ? 'Anyone with the link can see this room and its furniture without signing in. You can turn it off at any time.'
+            ? `Anyone with the link can see this room and its furniture${room.tour ? ', and its 360° pictures,' : ''} without signing in. You can turn it off at any time.`
             : 'Finish the floor plan in the phone app before sharing this room.'}
         </p>
         {createButton('Create private link')}
@@ -123,10 +123,13 @@ export function ShareCard({ room }: { room: RoomSummary }) {
     const shareId = room.shareId;
     const link = shareLink(shareId);
     const shared = share.status === 'ready' ? share.data : null;
+    // The room's 360° pictures are not in the shared copy (it was made before they existed, or
+    // they could not be shared then).
+    const missingTour = !!room.tour && !!shared && !shared.tour;
     const outdated =
-      shared?.updatedAt && room.updatedAt
+      (shared?.updatedAt && room.updatedAt
         ? room.updatedAt.getTime() > shared.updatedAt.getTime() + 1000
-        : false;
+        : false) || missingTour;
     body = (
       <>
         <div className="flex gap-2">
@@ -158,7 +161,13 @@ export function ShareCard({ room }: { room: RoomSummary }) {
             : shared
               ? `Shared copy from ${formatDate(shared.updatedAt)}.`
               : 'The link is active.'}
-          {outdated ? ' The room has changed since then.' : ''}
+          {missingTour
+            ? ' It does not show the 360° pictures yet: update it to add them.'
+            : outdated
+              ? ' The room has changed since then.'
+              : shared?.tour
+                ? ' It shows the 360° pictures too.'
+                : ''}
         </p>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
           <Button

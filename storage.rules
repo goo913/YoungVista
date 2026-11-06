@@ -1,7 +1,8 @@
 rules_version = '2';
 
 // YoungVista Storage rules. Each user's files live under users/{uid}/ and only that user can
-// read or write them. Uploads must be images of at most 10 MB, or a scan's JSON manifest.
+// read or write them, except a shared room's 360° pictures (below). Uploads must be images of at
+// most 10 MB, or a scan's JSON manifest.
 service firebase.storage {
   match /b/{bucket}/o {
     match /users/{uid}/{allPaths=**} {
@@ -17,6 +18,15 @@ service firebase.storage {
       allow create, update: if request.auth != null && request.auth.uid == uid
         && request.resource.size <= 2 * 1024 * 1024
         && request.resource.contentType == 'application/json';
+    }
+
+    // A shared room's 360° pictures (packages/core/src/tour.ts): the owner marks each panorama
+    // with the private link's id (custom metadata `shareId`), and anyone can read a marked one
+    // while that link exists and is the owner's. Turning the link off deletes it, which closes
+    // the pictures too. Never listable.
+    match /users/{uid}/scans/{scanId}/pano/{file} {
+      allow get: if resource.metadata.shareId is string
+        && firestore.get(/databases/(default)/documents/shares/$(resource.metadata.shareId)).data.ownerId == uid;
     }
   }
 }

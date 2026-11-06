@@ -15,6 +15,7 @@ import {
   LuPencil,
   LuPencilRuler,
   LuRefreshCw,
+  LuRotate3D,
   LuTrash2,
   LuTriangleAlert,
   LuView,
@@ -43,6 +44,7 @@ import { useCatalog } from '@/lib/catalog';
 import { formatDate } from '@/lib/format';
 import { useRoomDeletion } from '@/lib/room-delete';
 import { useRoom } from '@/lib/rooms';
+import { useRoomTour } from '@/lib/tour';
 import { useUnits } from '@/lib/units';
 
 export default function RoomScreen() {
@@ -53,6 +55,7 @@ export default function RoomScreen() {
   const [units, setUnits] = useUnits();
   const router = useRouter();
   const deletion = useRoomDeletion(roomId);
+  const tour = useRoomTour(roomId);
   const [manage, setManage] = useState<RoomManageTarget | null>(null);
 
   const design = room.status === 'ready' ? room.data.design : null;
@@ -166,6 +169,19 @@ export default function RoomScreen() {
                 <Icon as={LuView} size={16} />
                 <Text>See it in your room</Text>
               </Button>
+              {tour ? (
+                <Button
+                  variant="outline"
+                  disabled={deleting}
+                  onPress={() =>
+                    router.push({ pathname: '/rooms/[id]/tour', params: { id: roomId } })
+                  }
+                  accessibilityHint="Shows real 360° pictures of the room with the furniture drawn in."
+                >
+                  <Icon as={LuRotate3D} size={16} />
+                  <Text>Look around in real pictures</Text>
+                </Button>
+              ) : null}
               <Button
                 variant="outline"
                 disabled={deleting}
