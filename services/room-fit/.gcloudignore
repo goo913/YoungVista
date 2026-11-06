@@ -1,0 +1,13 @@
+# What Cloud Build uploads for the image: the Dockerfile, requirements, room_fit/ and the bundled
+# solver (solver/dist/solve.mjs, built by deploy.sh and kept out of git). No .gitignore include.
+.gcloudignore
+.gitignore
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+harness/
+tests/
+solver/solve.ts

@@ -9,6 +9,8 @@ import { requireUser } from './auth';
 
 export { requireUser };
 
+export { fitRoom } from './fit-room';
+
 /** Says the server is reachable (the app checks it before offering server features). */
 export const ping = onCall((request) => {
   requireUser(request.auth);

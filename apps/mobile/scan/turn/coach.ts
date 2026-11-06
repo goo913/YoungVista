@@ -102,7 +102,8 @@ export function fitMessage(stage: FitStage, error: string | null): Message {
     case 'running':
       return {
         title: 'Measuring your room',
-        detail: 'AI is finding the walls, doors and windows. This takes about a minute.',
+        detail:
+          'AI is finding the walls, doors and windows. This takes a few minutes: keep the phone pointed at the room.',
       };
     case 'done':
       return { title: 'Room measured', detail: 'Check the walls in the camera view.' };

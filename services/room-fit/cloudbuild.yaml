@@ -1,0 +1,23 @@
+# Builds the room-fit image (run by deploy.sh). The previous image is pulled first so unchanged
+# layers (PyTorch, the weights) come from cache and only the code is rebuilt.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args: ['-c', 'docker pull ${_IMAGE}:latest || true']
+  - name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    args:
+      - build
+      - --build-arg=BUILDKIT_INLINE_CACHE=1
+      - --cache-from=${_IMAGE}:latest
+      - --tag=${_IMAGE}:latest
+      - --tag=${_IMAGE}:${_TAG}
+      - .
+images: ['${_IMAGE}:latest', '${_IMAGE}:${_TAG}']
+options:
+  machineType: E2_HIGHCPU_8
+  diskSizeGb: 200
+timeout: 3600s
+substitutions:
+  _IMAGE: us-central1-docker.pkg.dev/young-vista/jobs/room-fit
+  _TAG: manual

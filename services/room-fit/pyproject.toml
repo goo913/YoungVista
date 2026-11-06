@@ -1,0 +1,21 @@
+# The room-fit job (docs/server.md). Dependencies are installed by the Dockerfile; this file only
+# configures the tests and the linter.
+[project]
+name = "room-fit"
+version = "1.0.0"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "B905", "B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["room_fit", "synth", "helpers", "run"]

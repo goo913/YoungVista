@@ -1,0 +1,9 @@
+# Built by deploy.sh from packages/core (also ignored as dist/ at the root)
+solver/dist/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/

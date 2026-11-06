@@ -87,8 +87,11 @@ import { TurnIntro } from './turn-intro';
 import { CaptureControls, FittedCard, MarkControls, MeasuringCard } from './turn-panels';
 import { initialTurnSceneState } from './turn-scene';
 
-/** The server has this long to fit the room before the screen offers to mark instead (ms). */
-const FIT_TIMEOUT_MS = 180_000;
+/**
+ * The server has this long to fit the room before the screen offers to mark instead (ms). On CPU
+ * a one-spot fit takes about 6 minutes (docs/server.md); on a GPU about a minute.
+ */
+const FIT_TIMEOUT_MS = 480_000;
 /** "Keep waiting" gives it this much longer (ms). */
 const KEEP_WAITING_MS = 120_000;
 /** The marked scan finishes by itself once every wall has fitted for this long (ms). */
