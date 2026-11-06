@@ -28,10 +28,10 @@ Decided 2026-11-05. The team asked Claude to make these calls; change any of the
 | Existing furniture | Not captured in the demo; the scan records walls, doors and windows. |
 | 3D view | Clean "dollhouse" model: walls, floor, doors, windows. |
 | Furniture | About 40 free true-scale models (Amazon Berkeley Objects CC BY 4.0, Poly Haven CC0, Khronos samples), starting with 15. Always real size. Snap to walls, no overlaps, colour options. GLB files served from Firebase Hosting. Credits screen. |
-| AR | Placements line up right after the scan; "tap two corners" to line up again later. |
+| AR | Placements line up right after the scan. Later, a saved room opens in 3D at once; in the camera view it lines up from two corner taps in either order (a mismatch is shown, never refused), can be dragged and turned by hand, or placed by hand without corners. |
 | Sizes | Feet and inches (metres optional), labelled approximate; "check with a tape" for tight gaps. |
 | Final picture | v1: an exact, sharp image of the 3D room with the furniture, from any angle. No AI. AI comes after the demo and is always called just "AI". |
-| Website | View rooms in 3D; private, revocable share links. No editing yet. |
+| Website | View and furnish rooms in 3D and on the plan (same rules and saved design as the phone, synced live); orbit, fly and walk (the closet project's controls) and full screen; rename and delete rooms and pictures; private, revocable share links. |
 | Accounts | Firebase Auth: email/password and Google sign-in, on the app and the website. |
 | Backend | Firebase project `young-vista`: Firestore (`nam5`), Storage (`us-central1`), Hosting (https://young-vista.web.app). |
 | Deploys | Every push to `main` deploys the website and rules through GitHub Actions, using keyless Google Cloud auth. |

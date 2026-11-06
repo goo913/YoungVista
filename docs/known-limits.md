@@ -45,8 +45,8 @@ it is planned for after the demo (see "After the demo" in [build.md](../build.md
   screen). Deleting one that is already uploaded needs a connection; a picture not uploaded yet
   is deleted at once. The copy in Photos stays: the app never deletes from Photos. Saving to
   Photos is optional: if it is not allowed, the picture still goes to the room.
-- The website lists the pictures; its "Download picture at twice screen resolution" is not built
-  yet.
+- On the website, pictures can be downloaded and deleted from the room's gallery, and the 3D view
+  can download a picture at twice screen resolution or save it to the room's pictures.
 
 ## Saving and connection
 
@@ -69,7 +69,12 @@ it is planned for after the demo (see "After the demo" in [build.md](../build.md
 
 ## Website and sharing
 
-- The website shows rooms, furniture and pictures; it can't edit them yet.
+- The website furnishes rooms (the phone's rules), renames and deletes them, and deletes
+  pictures; it does not edit walls, doors or windows (the phone's room editor does).
+- Two devices changing the same room at the same moment: the last change saved wins (a change
+  from the other device that arrives during a drag is replaced when the drag is saved).
+- Walking and flying with the keys need a mouse (Pointer Lock); on a touch screen the 3D view
+  looks round with a drag, steps with a pinch and walks to a double-tapped spot instead.
 - A share link is a snapshot: after changing the room, tap "Update shared copy".
 
 ## Phones and stores

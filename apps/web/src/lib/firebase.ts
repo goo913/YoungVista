@@ -21,6 +21,17 @@ export const missingFirebaseSettings: string[] = Object.entries(settings)
  */
 export const emulatorHost = import.meta.env.VITE_FIREBASE_EMULATOR_HOST || null;
 
+const port = (value: string | undefined, fallback: number) => Number(value) || fallback;
+/**
+ * The emulators' ports: the defaults of `firebase.emulators.json`, unless set (to run a second
+ * set of emulators next to the first).
+ */
+export const emulatorPorts = {
+  auth: port(import.meta.env.VITE_FIREBASE_EMULATOR_AUTH_PORT, 9099),
+  firestore: port(import.meta.env.VITE_FIREBASE_EMULATOR_FIRESTORE_PORT, 8080),
+  storage: port(import.meta.env.VITE_FIREBASE_EMULATOR_STORAGE_PORT, 9199),
+};
+
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 
@@ -40,7 +51,9 @@ export function firebaseAuth(): Auth {
   if (!auth) {
     auth = getAuth(firebaseApp());
     if (emulatorHost)
-      connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true });
+      connectAuthEmulator(auth, `http://${emulatorHost}:${emulatorPorts.auth}`, {
+        disableWarnings: true,
+      });
   }
   return auth;
 }

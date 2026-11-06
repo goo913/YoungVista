@@ -1,6 +1,6 @@
 import { connectStorageEmulator, getStorage } from 'firebase/storage';
-import { emulatorHost, firebaseApp } from './firebase';
+import { emulatorHost, emulatorPorts, firebaseApp } from './firebase';
 
-/** Cloud Storage, in its own chunk: only the room page's picture gallery loads it. */
+/** Cloud Storage, in its own chunk: only the room page (pictures, deleting a room) loads it. */
 export const storage = getStorage(firebaseApp());
-if (emulatorHost) connectStorageEmulator(storage, emulatorHost, 9199);
+if (emulatorHost) connectStorageEmulator(storage, emulatorHost, emulatorPorts.storage);

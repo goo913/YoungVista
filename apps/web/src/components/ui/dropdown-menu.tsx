@@ -4,6 +4,7 @@ import * as React from 'react';
 import { cn } from 'cn';
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
 import { LuCheck, LuChevronRight } from 'react-icons/lu';
+import { usePortalContainer } from '@/lib/fullscreen';
 
 function DropdownMenu({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
@@ -27,8 +28,10 @@ function DropdownMenuContent({
   sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+  // In full screen only the full-screen element shows: the menu goes inside it.
+  const container = usePortalContainer();
   return (
-    <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.Portal container={container}>
       <DropdownMenuPrimitive.Content
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}

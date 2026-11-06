@@ -40,7 +40,7 @@ What it doesn't do yet: [docs/known-limits.md](docs/known-limits.md).
 | `apps/web` | Website: Vite, React, React Router, Tailwind, shadcn/ui, react-icons, Firebase, React Three Fiber (3D view). |
 | `apps/mobile` | Phone app: Expo, Expo Router, ViroReact (AR), react-native-reusables, react-icons, Firebase. |
 | `apps/mobile/modules/scene-capture` | The app's own small native module: captures the 3D view for "Take picture" (Swift and Kotlin). |
-| `packages/core` | Shared TypeScript with no platform code: room model, scan geometry, 3D room meshes, furniture placement, room editing, AR line-up, share and picture documents, units, catalog types. |
+| `packages/core` | Shared TypeScript with no platform code: room model, scan geometry, 3D room meshes, furniture placement and the design reducer, live sync and autosave, room editing, AR line-up, walking and flying through a room, share and picture documents, units, catalog types. |
 | `firebase.json`, `.firebaserc` | Hosting, Firestore and Storage deploy settings. |
 | `firestore.rules`, `firestore.indexes.json`, `storage.rules` | Security rules and indexes, deployed by CI. |
 | `firebase.emulators.json`, `tests/rules` | Emulator settings and tests for the security rules. |
@@ -59,16 +59,20 @@ cp apps/web/.env.example apps/web/.env.local   # then fill in the values (see be
 npm run dev:web                                 # http://localhost:5173
 ```
 
-The website has the rooms list; a room page with the plan (furniture footprints: hover or tap for
-names), a 3D view, the furniture list with model credits, the room's pictures and its private
-link; and the public shared page at `/s/{shareId}`, which works without signing in. three.js loads
-only when the 3D view opens (its own chunk, see `vite.config.ts`).
+The website has the rooms list (rename or delete a room from its "…" menu); a room page where
+the owner furnishes the room on the plan or in 3D by the phone's rules (core's design reducer,
+saved to `rooms/{id}.design` and kept in step with the phone live); a 3D view that goes round the
+room, flies and walks through it like the team's closet designer, full screen; the furniture list
+with model credits; the room's pictures (download, delete, or save one from the 3D view) and its
+private link; and the public shared page at `/s/{shareId}`, which works without signing in.
+three.js loads only when the 3D view opens (its own chunk, see `vite.config.ts`).
 
 To try the website without touching the live project, run it against the Firebase emulators
 (Java 21+). Put any values in the six `VITE_FIREBASE_*` settings in
 `apps/web/.env.emulators.local` (project id `demo-young-vista`; storage bucket
 `demo-young-vista.appspot.com`, the phone's, so the gallery shows the phone's pictures), add
-`VITE_FIREBASE_EMULATOR_HOST=127.0.0.1`, then:
+`VITE_FIREBASE_EMULATOR_HOST=127.0.0.1` (and `VITE_FIREBASE_EMULATOR_*_PORT` when the emulators
+run on other ports, see `apps/web/.env.example`), then:
 
 ```sh
 npx firebase-tools@15.34.1 emulators:start --config firebase.emulators.json --only auth,firestore,storage --project demo-young-vista

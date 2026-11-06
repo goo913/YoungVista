@@ -1,7 +1,9 @@
-import { Link } from 'react-router';
-import { LuScanLine, LuSquareDashed, LuTriangleAlert } from 'react-icons/lu';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router';
+import { LuCircleCheck, LuScanLine, LuSquareDashed, LuTriangleAlert } from 'react-icons/lu';
 import { formatArea, roomArea, type UnitSystem } from '@youngvista/core';
 import { FloorPlan } from '@/components/floor-plan';
+import { RoomActions } from '@/components/room-actions';
 import { UnitsToggle } from '@/components/units-toggle';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +17,23 @@ export function RoomsPage() {
   const user = useUser();
   const rooms = useRooms(user.uid);
   const [units, setUnits] = useUnits();
+  const location = useLocation();
+  const navigate = useNavigate();
+  // "“Bedroom” was deleted.": from a room's page (in the address's state) or from this list.
+  const [deleted, setDeleted] = useState<string | null>(
+    () => (location.state as { deletedRoom?: string } | null)?.deletedRoom ?? null,
+  );
+  useEffect(() => {
+    if ((location.state as { deletedRoom?: string } | null)?.deletedRoom) {
+      // Said once: a reload does not say it again.
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location, navigate]);
+  useEffect(() => {
+    if (!deleted) return;
+    const t = setTimeout(() => setDeleted(null), 6000);
+    return () => clearTimeout(t);
+  }, [deleted]);
 
   return (
     <div className="grid gap-6">
@@ -28,6 +47,13 @@ export function RoomsPage() {
         </div>
         <UnitsToggle value={units} onChange={setUnits} />
       </div>
+
+      {deleted ? (
+        <Alert role="status">
+          <LuCircleCheck aria-hidden />
+          <AlertDescription>“{deleted}” was deleted.</AlertDescription>
+        </Alert>
+      ) : null}
 
       {rooms.status === 'loading' ? <RoomGridSkeleton /> : null}
 
@@ -43,8 +69,13 @@ export function RoomsPage() {
       {rooms.status === 'ready' && rooms.data.length > 0 ? (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rooms.data.map((room) => (
-            <li key={room.id}>
+            <li key={room.id} className="relative">
               <RoomCard room={room} units={units} />
+              <RoomActions
+                room={room}
+                className="absolute top-3 right-3"
+                onDeleted={() => setDeleted(room.name)}
+              />
             </li>
           ))}
         </ul>

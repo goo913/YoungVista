@@ -3,6 +3,7 @@ import { cn } from 'cn';
 import { AlertDialog as AlertDialogPrimitive } from 'radix-ui';
 
 import { Button } from '@/components/ui/button';
+import { usePortalContainer } from '@/lib/fullscreen';
 
 function AlertDialog({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
   return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
@@ -41,8 +42,10 @@ function AlertDialogContent({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
   size?: 'default' | 'sm';
 }) {
+  // In full screen only the full-screen element shows: the dialog goes inside it.
+  const container = usePortalContainer();
   return (
-    <AlertDialogPortal>
+    <AlertDialogPortal container={container}>
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"

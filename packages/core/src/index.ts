@@ -253,3 +253,94 @@ export type {
   CatalogLicense,
   CatalogDimensions,
 } from './catalog';
+
+export {
+  newItemId,
+  initialDesignState,
+  withPose,
+  placeAt,
+  checkItem,
+  reduceDesign,
+  displayedItems,
+  itemChecks,
+  selectedItem,
+} from './design-state';
+export type {
+  DesignContext,
+  ItemPose,
+  DesignGesture,
+  DesignNotice,
+  DesignState,
+  DesignAction,
+  ItemCheck,
+} from './design-state';
+
+export { inSentence, formatSize, placementProblem, noticeText } from './design-words';
+export type { PlacementProblem } from './design-words';
+
+export { designsEqual, shouldAdoptServerDesign, DesignFollower } from './design-sync';
+export type { SnapshotSource, DesignActivity } from './design-sync';
+
+export { Autosave, SAVE_STATUS_TEXT } from './autosave';
+export type { SaveStatus, AutosaveOptions } from './autosave';
+
+export {
+  WALK,
+  WALK_HEIGHT_CM,
+  WALK_FOV,
+  WALK_LOOK,
+  SKIN_TONES,
+  DEFAULT_SKIN,
+  normalizeHeightCm,
+  normalizeFov,
+  normalizeLookSpeed,
+  normalizeSkin,
+  skinOf,
+  feetInches,
+  walkModel,
+  roomWalkWalls,
+  roomWalkModel,
+  settle,
+  step,
+  startPose,
+  innerPoint,
+  roomOpenDir,
+  roomStartPose,
+  leavesHit,
+  eyeStand,
+  eyeCrouch,
+  eyeHeightOf,
+  newBody,
+  advanceBody,
+  headOffset,
+  bodyBusy,
+  turnHead,
+  walkBy,
+  steerTo,
+} from './walk';
+export type {
+  WalkBob,
+  WalkConfig,
+  WalkWall,
+  WalkLeaf,
+  WalkModel,
+  WalkPose,
+  WalkBody,
+  WalkInput,
+  BodyConfig,
+  SkinTone,
+} from './walk';
+
+export {
+  FLY,
+  flyBox,
+  flyClamp,
+  advanceFlight,
+  flyBy,
+  nextFlySpeed,
+  flyWheel,
+  flightFromCamera,
+  orbitFromFlight,
+  lookTarget,
+} from './fly';
+export type { FlyConfig, Flight, FlyBox, FlyInput } from './fly';

@@ -11,10 +11,12 @@ interface FurnitureListProps {
   furniture: readonly FurnitureEntry[];
   units: UnitSystem;
   catalog: CatalogState['status'];
+  /** The owner's page, where furniture can be added above. */
+  editable?: boolean;
 }
 
 /** The room's furniture with real sizes, then the credits for the 3D models used. */
-export function FurnitureList({ furniture, units, catalog }: FurnitureListProps) {
+export function FurnitureList({ furniture, units, catalog, editable = false }: FurnitureListProps) {
   const products = [
     ...new Map(
       furniture.flatMap((f) => (f.product ? [[f.product.id, f.product] as const] : [])),
@@ -43,7 +45,9 @@ export function FurnitureList({ furniture, units, catalog }: FurnitureListProps)
 
         {count === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Add furniture to this room in the phone app and it will show up here.
+            {editable
+              ? 'Add furniture with “Add furniture” above, or in the phone app. It shows in both.'
+              : 'Add furniture to this room in the phone app and it will show up here.'}
           </p>
         ) : catalog === 'loading' ? (
           <div className="grid gap-3" aria-label="Loading furniture">
