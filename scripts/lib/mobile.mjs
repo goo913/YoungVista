@@ -438,16 +438,31 @@ function filesIn(dir) {
     .sort();
 }
 
+/** Folders that builds write inside the app's own native modules. */
+const BUILD_DIRS = new Set(['build', '.gradle', '.cxx']);
+
+/** The files under `dir` without what builds write there. */
+function sourcesIn(dir) {
+  const built = (file) =>
+    path
+      .relative(dir, file)
+      .split(path.sep)
+      .some((p) => BUILD_DIRS.has(p));
+  return filesIn(dir).filter((file) => !built(file));
+}
+
 /**
  * A fingerprint of what prebuild makes a native project from: app.config.ts and the settings it
- * reads (release.json, the URL scheme and team in .env), the packages, the images and plugins,
- * and where the folder is. The app's own code isn't in it: every build bundles that afresh.
+ * reads (release.json, the URL scheme and team in .env), the packages, the images, plugins and
+ * the app's own native modules (apps/mobile/modules), and where the folder is. The app's own
+ * JavaScript isn't in it: every build bundles that afresh.
  */
 function fingerprint(platform) {
   const hash = crypto.createHash('sha256').update(`${platform}\n${mobile}\n`);
   const files = ['app.config.ts', 'release.json', 'package.json'].map((f) => path.join(mobile, f));
   files.push(path.join(root, 'package-lock.json'));
   files.push(...filesIn(path.join(mobile, 'assets')), ...filesIn(path.join(mobile, 'plugins')));
+  files.push(...sourcesIn(path.join(mobile, 'modules')));
   for (const file of files) {
     if (fs.existsSync(file)) hash.update(`${rel(file)}\n`).update(fs.readFileSync(file));
   }

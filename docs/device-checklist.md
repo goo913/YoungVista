@@ -87,7 +87,7 @@ only a phone can show: the iPhone's 3D drawing, real fingers, and the speed of a
 - [ ] Open a room, tap **Furnish in 3D**. The room appears in 3D within a few seconds: floor,
       walls, doors and windows; the walls between you and the room are faint.
 - [ ] One finger on empty floor turns around the room; two fingers pinch to zoom; **Top view**
-      glides to a view straight down and **3D** back. Note if anything stutters.
+      glides to a view straight down and **Corner view** back. Note if anything stutters.
 - [ ] **Add furniture**: the categories and pictures show, with sizes in feet and inches (and in
       metres after switching units). Add 5 pieces; each lands in a free spot.
 - [ ] Drag a piece with one finger in 3D and in **Plan**: it follows the finger and snaps flush
@@ -182,3 +182,62 @@ measure in centimetres or inches.
       furniture.
 - [ ] Move a piece in the app, tap **Update shared copy**, reload the page: it shows the move.
 - [ ] **Turn off link**: the page says "Link not found or turned off".
+
+## Build 4: final picture and polish
+
+Phone: the owner's **iPhone 15**, with a room furnished in Build 2 or 3 (three or more pieces).
+Install with `npm run iphone`: Build 4 adds a native module and new icons, so the first run makes
+the iPhone project again (a few minutes longer). The Android emulator check passed for everything
+below except what only a phone can show (the iPhone's own picture capture, Photos on iOS, real
+fingers and speed, the AR lights).
+
+### Icon, splash and first scan
+
+- [ ] The home screen shows the new icon (a room with a sofa, on dark grey); opening the app shows
+      the same mark on the splash screen, in light and in dark mode.
+- [ ] The first **Scan a room** shows "Before you scan" with four tips over the camera. **Got
+      it** puts them away; the next scan goes straight to the camera. Settings → **Scanning
+      tips** shows them again.
+
+### Take a picture
+
+- [ ] **Furnish in 3D**: the buttons over the view say **Top view** and **Corner view** (no second
+      "3D"). Choose an angle, tap **Take picture**: a short white flash, then "Picture taken"
+      with the picture. The first time, iPhone asks to add photos: allow it.
+- [ ] The card says "Saved to Photos" and then "It is on the website too". Open Photos: the
+      picture is there, sharp, with no blue or red marks under the furniture, nothing drawn over
+      it, and the room exactly as on screen. Write down its size (Photos → swipe up on it).
+- [ ] With a piece selected (blue mark) or misplaced (red), tap away, then take a picture: the
+      marks are not in it.
+- [ ] Take one right after opening the 3D view, while models are still loading: it waits for
+      them (or says some showed as grey boxes).
+- [ ] Deny "add photos" in Settings → Privacy & Security → Photos → YoungVista → None, then take a
+      picture: the card says "Not saved to Photos: allow it in Settings" with **Open Settings**,
+      and the picture still reaches the room.
+- [ ] Room page → **Pictures**: the new pictures, newest first; tap one to see it full screen. The
+      room on https://young-vista.web.app shows the same pictures in its gallery.
+
+### Weak or no connection
+
+- [ ] Airplane mode on, in the 3D view: after a few seconds a quiet grey line says "Weak or no
+      connection…". Take a picture: "It will upload when the connection is back". Its tile on
+      the room page says **No connection**.
+- [ ] Still offline, close the app completely. Turn airplane mode off and open the app: within a
+      few seconds the picture uploads (its tile loses the label) and shows on the website.
+- [ ] Rooms list, room page and 3D view stay usable offline; the grey line goes away when the
+      connection is back.
+
+### Polish
+
+- [ ] **Your rooms**: the top bar has no gear floating over it; **Settings** is a button under
+      the intro line. The rooms list and a room page show grey placeholders while loading, and
+      "Try again" if they fail (for example a slow first launch in airplane mode).
+- [ ] The furniture picker shows grey placeholders while pictures load, and a message for a
+      category with nothing in it.
+- [ ] VoiceOver (Settings → Accessibility → VoiceOver), for a minute: every round or icon button
+      says what it does (close, dismiss, the units, Settings, the picture tiles).
+- [ ] **See it in your room** right after opening: the banner says "Starting the camera…", not
+      "Move slowly". Then, in a dim corner and in a bright spot, the furniture looks a little
+      darker and brighter with the room's light.
+- [ ] Dragging furniture in the 3D view and moving around in AR feel as smooth as before or
+      smoother.

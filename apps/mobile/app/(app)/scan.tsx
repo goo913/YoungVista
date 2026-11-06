@@ -20,6 +20,7 @@ import {
   type SavedRoom,
 } from '@/components/scan/room-review';
 import { GuidanceBanner, Notice, Reticle, ScanControls, TopBar } from '@/components/scan/scan-hud';
+import { ScanTips } from '@/components/scan/scan-tips';
 import { useUser } from '@/lib/auth';
 import { createStore } from '@/lib/store';
 import { useUnits } from '@/lib/units';
@@ -320,6 +321,7 @@ function ScanSession({ onRestart }: { onRestart: () => void }) {
           )}
         </CameraGate>
       ) : null}
+      <ScanTips />
     </View>
   );
 }

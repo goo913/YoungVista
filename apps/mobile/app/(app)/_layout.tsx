@@ -1,6 +1,8 @@
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { useAuth } from '@/lib/auth';
+import { pictureUploads } from '@/lib/pictures';
 import { sendLeftoverEdits } from '@/lib/rooms';
 
 export const unstable_settings = { anchor: 'index' };
@@ -14,6 +16,18 @@ export default function AppRoutes() {
   useEffect(() => {
     if (uid) void sendLeftoverEdits(uid);
   }, [uid]);
+
+  // Pictures not uploaded yet (taken offline, or the app was closed): upload them, and try again
+  // whenever the app comes back to the front.
+  useEffect(() => {
+    void pictureUploads.start(uid);
+  }, [uid]);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') pictureUploads.retryNow();
+    });
+    return () => sub.remove();
+  }, []);
 
   // Signing out: the root guard swaps these screens for sign-in; render nothing meanwhile so no
   // screen runs without a user.

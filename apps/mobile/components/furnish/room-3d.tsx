@@ -4,6 +4,9 @@
  * looks straight down. Furniture is picked and dragged with the app's own camera maths
  * (furnish/orbit.ts): a finger that starts on a piece moves it along the floor, and a two-finger
  * turn rotates the selected piece. The touch handling lives in view-3d-controls.ts.
+ *
+ * `capture()` takes the final picture: what the scene draws, without anything drawn over it
+ * (modules/scene-capture).
  */
 import { Viro3DSceneNavigator } from '@reactvision/react-viro';
 import { buildRoomMeshes, type Room, type RoomMeshes } from '@youngvista/core';
@@ -16,11 +19,12 @@ import {
   useRef,
   useState,
 } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { findNodeHandle, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { Text } from '@/components/ui/text';
 import { projectPoint, type ViewPreset, type Viewport } from '@/furnish/orbit';
 import { createStore, useStore, type Store } from '@/lib/store';
+import { captureScene, type SceneCaptureResult } from '@/modules/scene-capture';
 import {
   RoomScene,
   SCENE_COLORS,
@@ -45,7 +49,18 @@ export interface Room3DProps extends View3DInput {
 export interface Room3DHandle {
   /** Glides to a three-quarter view or straight down. */
   show(preset: ViewPreset): void;
+  /**
+   * Resolves once every piece's model is drawn (or could not load): true, or false after
+   * `timeoutMs` with some still loading.
+   */
+  whenModelsReady(timeoutMs: number): Promise<boolean>;
+  /** The scene as a JPEG at the view's full pixel size (the final picture). */
+  capture(): Promise<SceneCaptureResult>;
 }
+
+/** The pieces whose model is still loading. */
+const loadingCount = (s: SceneState) =>
+  s.items.filter((it) => it.modelUrl && !s.ready.has(it.id) && !s.failed.has(it.id)).length;
 
 export const Room3D = forwardRef<Room3DHandle, Room3DProps>(function Room3D(props, ref) {
   const { room, items } = props;
@@ -56,6 +71,7 @@ export const Room3D = forwardRef<Room3DHandle, Room3DProps>(function Room3D(prop
       items,
       orbit: { target: [0, 0, 0], yaw: 28, pitch: 40, distance: 8 },
       failed: new Set(),
+      ready: new Set(),
     }),
   );
   const [controls] = useState(() => new View3DControls(store, props));
@@ -77,7 +93,35 @@ export const Room3D = forwardRef<Room3DHandle, Room3DProps>(function Room3D(prop
     controls.frame(meshes, viewport);
   }, [controls, meshes, viewport]);
 
-  useImperativeHandle(ref, () => ({ show: (preset) => controls.show(preset) }), [controls]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      show: (preset) => controls.show(preset),
+      whenModelsReady: (timeoutMs) =>
+        new Promise<boolean>((resolve) => {
+          if (loadingCount(store.get()) === 0) {
+            resolve(true);
+            return;
+          }
+          // Both callbacks run later, once `timer` and `stop` exist.
+          const timer = setTimeout(() => done(false), timeoutMs);
+          const stop = store.subscribe(() => {
+            if (loadingCount(store.get()) === 0) done(true);
+          });
+          function done(ready: boolean) {
+            clearTimeout(timer);
+            stop();
+            resolve(ready);
+          }
+        }),
+      capture: async () => {
+        const tag = navigator.current ? findNodeHandle(navigator.current) : null;
+        if (tag == null) throw new Error('The 3D view is not ready yet.');
+        return captureScene(tag, { quality: 0.92, background: SCENE_COLORS.background });
+      },
+    }),
+    [controls, store],
+  );
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -90,8 +134,10 @@ export const Room3D = forwardRef<Room3DHandle, Room3DProps>(function Room3D(prop
     }
   };
 
-  return (
-    <View style={styles.fill} onLayout={onLayout}>
+  // Made once: everything the scene draws comes through the store, so the navigator (and the
+  // scene under it) need not re-render with this view, which happens at every step of a drag.
+  const scene = useMemo(
+    () => (
       <Viro3DSceneNavigator
         ref={navigator}
         initialScene={waitingScene}
@@ -101,6 +147,13 @@ export const Room3D = forwardRef<Room3DHandle, Room3DProps>(function Room3D(prop
         shadowsEnabled
         bloomEnabled={false}
       />
+    ),
+    [appProps],
+  );
+
+  return (
+    <View style={styles.fill} onLayout={onLayout}>
+      {scene}
       <FailedLabels store={store} viewport={viewport} />
       <GestureDetector gesture={controls.gesture}>
         <View style={StyleSheet.absoluteFill} collapsable={false} />

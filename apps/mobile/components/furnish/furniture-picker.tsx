@@ -6,9 +6,10 @@ import type { CatalogItem, UnitSystem } from '@youngvista/core';
 import { useMemo, useState } from 'react';
 import { FlatList, Image, Modal, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LuArmchair, LuView, LuX } from 'react-icons/lu';
+import { LuArmchair, LuSearchX, LuView, LuX } from 'react-icons/lu';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { formatSize } from '@/furnish/describe';
 import { categoryGroups, thumbUrl, type CatalogIndex } from '@/lib/catalog-data';
@@ -98,6 +99,21 @@ export function FurniturePicker({
               <View className="flex-1" />
             )
           }
+          ListEmptyComponent={
+            <View className="items-center gap-3 px-6 py-12">
+              <Icon as={LuSearchX} size={28} className="text-muted-foreground" />
+              <Text className="text-muted-foreground text-center text-sm">
+                {category
+                  ? 'Nothing in this category yet. Try another one.'
+                  : 'The furniture list is empty. Check your connection and open it again.'}
+              </Text>
+              {category ? (
+                <Button variant="outline" onPress={() => setCategory(null)}>
+                  <Text>Show all furniture</Text>
+                </Button>
+              ) : null}
+            </View>
+          }
           ListFooterComponent={
             onCredits ? (
               <Pressable onPress={onCredits} accessibilityRole="link" className="py-4">
@@ -143,6 +159,7 @@ function PickerCard({
   onPress: () => void;
 }) {
   const [broken, setBroken] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const thumb = thumbUrl(item);
   const colours = item.variants.length;
   return (
@@ -154,12 +171,17 @@ function PickerCard({
     >
       <View className="bg-muted/40 aspect-square items-center justify-center">
         {thumb && !broken ? (
-          <Image
-            source={{ uri: thumb }}
-            resizeMode="contain"
-            style={{ width: '88%', height: '88%' }}
-            onError={() => setBroken(true)}
-          />
+          <>
+            {loaded ? null : <Skeleton className="absolute inset-4 rounded-lg" />}
+            <Image
+              source={{ uri: thumb }}
+              resizeMode="contain"
+              style={{ width: '88%', height: '88%' }}
+              onLoad={() => setLoaded(true)}
+              onError={() => setBroken(true)}
+              accessible={false}
+            />
+          </>
         ) : (
           <Icon as={LuArmchair} size={32} className="text-muted-foreground" />
         )}

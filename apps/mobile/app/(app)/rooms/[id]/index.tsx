@@ -1,16 +1,18 @@
 import { formatArea, isFlatProduct, itemFootprint, roomArea } from '@youngvista/core';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import {
   LuArmchair,
-  LuCloudOff,
   LuInfo,
   LuPencilRuler,
+  LuRefreshCw,
   LuTriangleAlert,
   LuView,
 } from 'react-icons/lu';
+import { ConnectionBanner } from '@/components/connection-banner';
 import { FloorPlan, type PlanFurniture } from '@/components/floor-plan';
+import { PictureStrip } from '@/components/pictures/picture-strip';
 import { RoomFacts } from '@/components/room-facts';
 import { ShareCard } from '@/components/share-card';
 import { UnitsToggle } from '@/components/units-toggle';
@@ -18,6 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useCatalog } from '@/lib/catalog';
 import { formatDate } from '@/lib/format';
@@ -48,13 +51,7 @@ export default function RoomScreen() {
     });
   }, [design, catalog]);
 
-  if (room.status === 'loading') {
-    return (
-      <View className="bg-background flex-1 items-center justify-center">
-        <ActivityIndicator />
-      </View>
-    );
-  }
+  if (room.status === 'loading') return <RoomSkeleton />;
   if (room.status !== 'ready') {
     return (
       <View className="bg-background flex-1 gap-4 p-4">
@@ -66,6 +63,12 @@ export default function RoomScreen() {
               : room.message}
           </AlertDescription>
         </Alert>
+        {room.status === 'error' ? (
+          <Button onPress={room.retry}>
+            <Icon as={LuRefreshCw} size={16} />
+            <Text>Try again</Text>
+          </Button>
+        ) : null}
         <Button variant="outline" onPress={() => router.back()}>
           <Text>Back to your rooms</Text>
         </Button>
@@ -84,13 +87,7 @@ export default function RoomScreen() {
         </Text>
         <UnitsToggle value={units} onChange={setUnits} />
       </View>
-      {!room.online ? (
-        <Alert icon={LuCloudOff}>
-          <AlertDescription>
-            Offline: showing the copy on this phone. Changes are saved when the connection is back.
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <ConnectionBanner online={room.online} />
       {room.data.room ? (
         <>
           <Card className="px-4">
@@ -133,6 +130,13 @@ export default function RoomScreen() {
               ? 'No furniture yet.'
               : `${count} ${count === 1 ? 'piece' : 'pieces'} of furniture, shown at real size.`}
           </Text>
+          <PictureStrip
+            roomId={roomId}
+            online={room.online}
+            onTakePicture={() =>
+              router.push({ pathname: '/rooms/[id]/furnish', params: { id: roomId } })
+            }
+          />
           <ShareCard summary={room.data} />
           <Text className="text-muted-foreground text-xs">
             Sizes are approximate: check with a tape for tight gaps.
@@ -144,5 +148,22 @@ export default function RoomScreen() {
         </Alert>
       )}
     </ScrollView>
+  );
+}
+
+/** The room page's shape while the room loads: the plan, the buttons and the facts. */
+function RoomSkeleton() {
+  return (
+    <View className="bg-background flex-1 gap-4 p-4" accessibilityLabel="Loading the room">
+      <View className="flex-row items-center justify-between">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-9 w-24" />
+      </View>
+      <Skeleton className="aspect-[4/3] w-full rounded-xl" />
+      <Skeleton className="h-11 w-full" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-24 w-full rounded-xl" />
+    </View>
   );
 }

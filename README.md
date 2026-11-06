@@ -6,12 +6,40 @@ furniture in it. A website shows the same rooms on a bigger screen.
 - Plan: [build.md](build.md). Decisions: [decisions.md](decisions.md). Rules for contributors: [CLAUDE.md](CLAUDE.md).
 - Website: https://young-vista.web.app (Firebase project `young-vista`).
 
+## What it does
+
+All four builds of the plan are in (the team demo):
+
+1. **Scan** a room on a normal iPhone or Android phone: the app finds the floor and you mark each
+   wall once; tips show before the first scan. Floor plan, wall lengths and area; saved to your
+   account.
+2. **Furnish** it in 3D with true-size furniture (about 40 free models): move, turn, snap to
+   walls, colours. Edit walls, doors and windows. Everything autosaves and works offline.
+3. **See it in your room** through the camera (AR), or place furniture freely; open the room in 3D
+   on the website and share a private, view-only link.
+4. **Take a picture**: an exact picture of the 3D view from any angle, saved to Photos and to the
+   room; it shows on the room page and in the website's gallery. Pictures taken offline upload
+   later by themselves.
+
+What it doesn't do yet: [docs/known-limits.md](docs/known-limits.md).
+
+## Docs
+
+| Doc | For |
+|---|---|
+| [docs/running-the-apps.md](docs/running-the-apps.md) | Putting the app on your iPhone or an Android phone, step by step; the development build. |
+| [docs/device-checklist.md](docs/device-checklist.md) | What to check on real phones after each build. |
+| [docs/known-limits.md](docs/known-limits.md) | What YoungVista does not do yet. |
+| [docs/publishing/](docs/publishing/README.md) | TestFlight for the team (the owner uploads; Google Play comes later). |
+| [docs/store/testflight-notes.md](docs/store/testflight-notes.md) | The "What to Test" text for each build. |
+
 ## Repo layout
 
 | Path | What it is |
 |---|---|
 | `apps/web` | Website: Vite, React, React Router, Tailwind, shadcn/ui, react-icons, Firebase, React Three Fiber (3D view). |
 | `apps/mobile` | Phone app: Expo, Expo Router, ViroReact (AR), react-native-reusables, react-icons, Firebase. |
+| `apps/mobile/modules/scene-capture` | The app's own small native module: captures the 3D view for "Take picture" (Swift and Kotlin). |
 | `packages/core` | Shared TypeScript with no platform code: room model, scan geometry, 3D room meshes, furniture placement, room editing, AR line-up, share and picture documents, units, catalog types. |
 | `firebase.json`, `.firebaserc` | Hosting, Firestore and Storage deploy settings. |
 | `firestore.rules`, `firestore.indexes.json`, `storage.rules` | Security rules and indexes, deployed by CI. |
@@ -38,7 +66,8 @@ only when the 3D view opens (its own chunk, see `vite.config.ts`).
 
 To try the website without touching the live project, run it against the Firebase emulators
 (Java 21+). Put any values in the six `VITE_FIREBASE_*` settings in
-`apps/web/.env.emulators.local` (project id `demo-young-vista`), add
+`apps/web/.env.emulators.local` (project id `demo-young-vista`; storage bucket
+`demo-young-vista.appspot.com`, the phone's, so the gallery shows the phone's pictures), add
 `VITE_FIREBASE_EMULATOR_HOST=127.0.0.1`, then:
 
 ```sh
@@ -94,7 +123,19 @@ npm run publish:iphone                    # upload to TestFlight (the owner runs
   since there is no AR to scan with). Release builds ignore the setting. On an Android emulator,
   the 3D view also needs `adb shell settings put global angle_gl_driver_selection_pkgs
   com.youngcorporation.youngvista` and `... angle_gl_driver_selection_values angle`: ViroReact
-  asks for an sRGB screen buffer, which the emulator's own GL driver cannot make.
+  asks for an sRGB screen buffer, which the emulator's own GL driver cannot make. "Take picture"
+  works there too: the picture lands in the emulator's gallery, the Storage emulator and the
+  website's gallery.
+- "Take picture" uses the app's own native module, `apps/mobile/modules/scene-capture`
+  (ViroReact has a screenshot only for its AR view): `GLKView.snapshot` on iPhone, which is what
+  ViroKit's own screenshot does, and `TextureView.getBitmap()` on Android. Pictures are queued on
+  the phone and uploaded to `users/{uid}/rooms/{roomId}/pictures/{id}.jpg` with a
+  `rooms/{roomId}/pictures/{id}` record (`apps/mobile/lib/pictures.ts`).
+- The app icon, Android adaptive icon and splash screen come from
+  `apps/mobile/assets/brand/mark.svg`: after changing it, run
+  `node apps/mobile/scripts/render-icons.mjs` and commit the PNGs.
+- Development builds have no floating "Tools" button: open the developer menu by shaking the phone
+  (Ctrl+M or ⌘M on an Android emulator).
 
 ## Settings and secrets
 

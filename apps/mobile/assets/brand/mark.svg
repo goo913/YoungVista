@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- YoungVista's mark: a room (walls and roof) with a sofa in it. scripts/render-icons.mjs turns
+       it into the app icon, the Android adaptive icon and the splash screen. Ink #fafafa, sofa
+       #d8c3a2 and its seat #ebdcc2 are recoloured there for each image. -->
+  <path d="M292 772V470L512 282L732 470V772Z" fill="none" stroke="#fafafa" stroke-width="52" stroke-linejoin="round" stroke-linecap="round"/>
+  <g fill="#d8c3a2">
+    <rect x="394" y="560" width="236" height="96" rx="30"/>
+    <rect x="354" y="600" width="66" height="116" rx="28"/>
+    <rect x="604" y="600" width="66" height="116" rx="28"/>
+    <rect x="354" y="668" width="316" height="48" rx="20"/>
+    <rect x="374" y="704" width="22" height="34" rx="7"/>
+    <rect x="628" y="704" width="22" height="34" rx="7"/>
+  </g>
+  <rect x="412" y="634" width="200" height="44" rx="14" fill="#ebdcc2"/>
+</svg>

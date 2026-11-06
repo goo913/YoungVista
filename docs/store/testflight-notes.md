@@ -40,3 +40,23 @@ PLEASE TRY
 HOW TO REPORT
 In the TestFlight app: YoungVista → Send Beta Feedback (you can add a screenshot), or tell the team. Say which room and what happened, and how far off the furniture looked (in inches or centimetres).
 ```
+
+## Build 4: final pictures and polish
+
+For a build with Build 4 of the plan (the team demo), paste this instead:
+
+```
+Thanks for testing YoungVista. This build takes pictures of your furnished room, has a new icon, shows four short tips before your first scan, and copes better with a weak connection. Each scan still sends the team a small technical log (no photos).
+
+PLEASE TRY
+1. Open a furnished room and tap Furnish in 3D. Turn the view to an angle you like (Top view and Corner view help), then tap Take picture. Allow YoungVista to add to Photos when it asks.
+2. The card says the picture is saved to Photos and uploaded. Open Photos: is it sharp, and exactly what the 3D view showed?
+3. Back on the room page, under Pictures, tap the new picture to see it full screen. On a computer, open the room on https://young-vista.web.app: is the picture in its gallery?
+4. Turn on airplane mode and take another picture. It should say it will upload when the connection is back. Close the app, turn airplane mode off and open the app again: the picture should upload by itself within a few seconds.
+5. Scan a new room: four tips should show before the first scan only. Settings > Scanning tips shows them again.
+6. Tap See it in your room: does the furniture look right in a dim corner and in a bright spot?
+7. Anything that looked wrong, was slow or confused you: an empty or stuck screen, a button you could not find, a message you did not understand.
+
+HOW TO REPORT
+In the TestFlight app: YoungVista → Send Beta Feedback (you can add a screenshot), or tell the team. Say which room and what happened.
+```

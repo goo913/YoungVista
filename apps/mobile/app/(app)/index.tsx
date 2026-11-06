@@ -1,16 +1,17 @@
 import { formatArea, roomArea, type UnitSystem } from '@youngvista/core';
-import { Link, Stack, useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  LuCloudOff,
+  LuRefreshCw,
   LuScanLine,
   LuSettings,
   LuSquareDashed,
   LuTriangleAlert,
   LuView,
 } from 'react-icons/lu';
+import { ConnectionBanner } from '@/components/connection-banner';
 import { FloorPlan } from '@/components/floor-plan';
 import { UnitsToggle } from '@/components/units-toggle';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -36,20 +37,6 @@ export default function RoomsScreen() {
 
   return (
     <View className="bg-background flex-1">
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <Button
-              variant="ghost"
-              size="icon"
-              onPress={() => router.push('/settings')}
-              accessibilityLabel="Settings"
-            >
-              <Icon as={LuSettings} size={20} />
-            </Button>
-          ),
-        }}
-      />
       <FlatList
         data={rooms.status === 'ready' ? rooms.data : []}
         keyExtractor={(room) => room.id}
@@ -57,25 +44,34 @@ export default function RoomsScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + (hasRooms ? 96 : 24) }}
         ListHeaderComponent={
           <View className="gap-4">
+            <Text className="text-muted-foreground text-sm">
+              Rooms you scan, newest first. They also show on young-vista.web.app.
+            </Text>
+            {/* In the page rather than floating in the header, where it covered the content. */}
             <View className="flex-row items-center justify-between gap-3">
-              <Text className="text-muted-foreground flex-1 text-sm">
-                Rooms you scan, newest first. They also show on young-vista.web.app.
-              </Text>
               <UnitsToggle value={units} onChange={setUnits} />
+              <Button
+                variant="outline"
+                size="sm"
+                onPress={() => router.push('/settings')}
+                accessibilityHint="Units, scanning tips, model credits and signing out."
+              >
+                <Icon as={LuSettings} size={16} />
+                <Text>Settings</Text>
+              </Button>
             </View>
-            {rooms.status === 'ready' && !rooms.online ? (
-              <Alert icon={LuCloudOff}>
-                <AlertDescription>
-                  Offline: showing the rooms kept on this phone. Changes are saved when the
-                  connection is back.
-                </AlertDescription>
-              </Alert>
-            ) : null}
+            {rooms.status === 'ready' ? <ConnectionBanner online={rooms.online} /> : null}
             {rooms.status === 'loading' ? <RoomListSkeleton /> : null}
             {rooms.status === 'error' ? (
-              <Alert variant="destructive" icon={LuTriangleAlert}>
-                <AlertDescription>{rooms.message}</AlertDescription>
-              </Alert>
+              <View className="gap-3">
+                <Alert variant="destructive" icon={LuTriangleAlert}>
+                  <AlertDescription>{rooms.message}</AlertDescription>
+                </Alert>
+                <Button variant="outline" onPress={rooms.retry}>
+                  <Icon as={LuRefreshCw} size={16} />
+                  <Text>Try again</Text>
+                </Button>
+              </View>
             ) : null}
             {rooms.status === 'ready' && rooms.data.length === 0 ? (
               <EmptyRooms

@@ -1,7 +1,8 @@
 /**
  * Furnishing a room: the room in 3D (or as a plan, for precise moves), a picker to add real-size
  * furniture, and a panel to turn, copy, recolour or remove the selected piece. Every change is
- * saved to `rooms/{id}.design` about a second later.
+ * saved to `rooms/{id}.design` about a second later. "Take picture" captures the 3D view as it
+ * is (the final picture): it goes to Photos and to the room's pictures (lib/pictures.ts).
  */
 import {
   isFlatProduct,
@@ -12,14 +13,16 @@ import {
 } from '@youngvista/core';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Animated, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LuPlus, LuSquare, LuTriangleAlert } from 'react-icons/lu';
+import { LuBox, LuCamera, LuPlus, LuSquare, LuTriangleAlert } from 'react-icons/lu';
+import { ConnectionBanner } from '@/components/connection-banner';
 import { FurniturePicker } from '@/components/furnish/furniture-picker';
 import { ItemPanel } from '@/components/furnish/item-panel';
 import { PlanEditor, type PlanEditorItem } from '@/components/furnish/plan-editor';
 import { Room3D, type Room3DHandle } from '@/components/furnish/room-3d';
 import type { SceneItem } from '@/components/furnish/room-scene';
+import { ShotNotice, type Shot } from '@/components/pictures/shot-notice';
 import { SaveIndicator } from '@/components/save-indicator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -31,17 +34,33 @@ import { displayedItems, itemChecks, selectedItem } from '@/furnish/design-state
 import type { PickBox } from '@/furnish/orbit';
 import { pickBoxFor, sceneItem, UNKNOWN_SIZE } from '@/furnish/scene-items';
 import { useDesign } from '@/furnish/use-design';
+import { useUser } from '@/lib/auth';
 import { models, retryCatalog, useCatalog } from '@/lib/catalog';
 import { modelUrl, type CatalogIndex } from '@/lib/catalog-data';
+import {
+  forgetCapture,
+  pictureUploads,
+  saveToPhotos,
+  usePictureUploads,
+  useUploadWhenOnline,
+} from '@/lib/pictures';
 import type { PendingEdits, RoomSummary } from '@/lib/room-doc';
 import { saveDesign, useRoom } from '@/lib/rooms';
 import { useUnits } from '@/lib/units';
 import { useAutosave } from '@/lib/use-autosave';
+import { sceneCaptureAvailable } from '@/modules/scene-capture';
 
 const asPending = (design: Design): PendingEdits => ({ design });
 
 /** Height of the panel under the view (dp, without the bottom inset): fits the tallest panel. */
 const PANEL_HEIGHT = 200;
+
+/** Longest wait for models still loading before a picture is taken anyway (ms). */
+const MODELS_WAIT_MS = 10_000;
+/** After hiding the selection marks, the scene draws a few frames before the picture (ms). */
+const SETTLE_MS = 350;
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export default function FurnishScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -110,11 +129,19 @@ function FurnishEditor({
 }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const user = useUser();
   const [units] = useUnits();
   const { state, dispatch, ctx } = useDesign(room, catalog, summary.design);
   const [mode, setMode] = useState<'3d' | 'plan'>('3d');
   const [picking, setPicking] = useState(false);
   const view3d = useRef<Room3DHandle>(null);
+  // The final picture: while taking it the selection marks are hidden, then a card says how it
+  // went (Photos, upload).
+  const [capturing, setCapturing] = useState(false);
+  const [shot, setShot] = useState<Shot | null>(null);
+  const uploads = usePictureUploads();
+  useUploadWhenOnline(online);
+  const [flash] = useState(() => new Animated.Value(0));
   const { status, change } = useAutosave({
     roomId: summary.id,
     online,
@@ -167,12 +194,14 @@ function FurnishEditor({
 
   const highlight = useCallback(
     (itemId: string): SceneItem['highlight'] =>
-      checks.get(itemId)?.valid === false
-        ? 'invalid'
-        : itemId === state.selectedId
-          ? 'selected'
-          : 'none',
-    [checks, state.selectedId],
+      capturing
+        ? 'none'
+        : checks.get(itemId)?.valid === false
+          ? 'invalid'
+          : itemId === state.selectedId
+            ? 'selected'
+            : 'none',
+    [checks, state.selectedId, capturing],
   );
 
   const sceneItems = useMemo<SceneItem[]>(
@@ -197,6 +226,56 @@ function FurnishEditor({
       }),
     [shown, product, highlight],
   );
+
+  const dismissShot = useCallback(() => setShot(null), []);
+
+  /**
+   * "Take picture": waits for the models still loading, hides the selection marks for a moment,
+   * captures the 3D view, keeps the picture in the upload queue and saves it to Photos.
+   */
+  const takePicture = async () => {
+    const view = view3d.current;
+    if (capturing || !view) return;
+    if (!sceneCaptureAvailable) {
+      setShot({
+        phase: 'failed',
+        message: 'This copy of the app cannot take pictures. Install the latest build.',
+      });
+      return;
+    }
+    setCapturing(true);
+    setShot({ phase: 'taking' });
+    try {
+      const complete = await view.whenModelsReady(MODELS_WAIT_MS);
+      await wait(SETTLE_MS);
+      const capture = await view.capture();
+      Animated.sequence([
+        Animated.timing(flash, { toValue: 0.85, duration: 70, useNativeDriver: true }),
+        Animated.timing(flash, { toValue: 0, duration: 280, useNativeDriver: true }),
+      ]).start();
+      const picture = await pictureUploads.add({
+        uid: user.uid,
+        roomId: summary.id,
+        capture,
+        platform: Platform.OS === 'ios' ? 'ios' : 'android',
+      });
+      setCapturing(false);
+      setShot({
+        phase: 'taken',
+        pictureId: picture.id,
+        file: picture.file,
+        photos: 'saving',
+        incomplete: !complete,
+      });
+      const photos = await saveToPhotos(capture.uri);
+      forgetCapture(capture.uri);
+      setShot((s) => (s?.phase === 'taken' && s.pictureId === picture.id ? { ...s, photos } : s));
+    } catch {
+      setShot({ phase: 'failed', message: 'The picture could not be taken. Try again.' });
+    } finally {
+      setCapturing(false);
+    }
+  };
 
   const gestures = {
     onTap: (itemId: string | null) => dispatch({ type: 'select', id: itemId }),
@@ -244,12 +323,25 @@ function FurnishEditor({
         </ToggleGroup>
         {mode === '3d' ? (
           <View className="flex-row gap-2">
-            <Button size="sm" variant="outline" onPress={() => view3d.current?.show('top')}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="px-2.5"
+              onPress={() => view3d.current?.show('top')}
+              accessibilityHint="Looks straight down at the room."
+            >
               <Icon as={LuSquare} size={14} />
               <Text>Top view</Text>
             </Button>
-            <Button size="sm" variant="outline" onPress={() => view3d.current?.show('corner')}>
-              <Text>3D</Text>
+            <Button
+              size="sm"
+              variant="outline"
+              className="px-2.5"
+              onPress={() => view3d.current?.show('corner')}
+              accessibilityHint="Looks at the room from a corner, from above."
+            >
+              <Icon as={LuBox} size={14} />
+              <Text>Corner view</Text>
             </Button>
           </View>
         ) : (
@@ -270,7 +362,13 @@ function FurnishEditor({
         ) : (
           <PlanEditor room={room} items={planItems} selectedId={state.selectedId} {...gestures} />
         )}
+        {/* The camera flash: the picture was taken. */}
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { backgroundColor: 'white', opacity: flash }]}
+        />
         <View className="absolute inset-x-3 top-3 gap-2" pointerEvents="box-none">
+          <ConnectionBanner online={online} className="bg-muted/90" />
           {live ? <Banner tone="error" text={live} /> : null}
           {!live && misplaced > 0 ? (
             <Banner
@@ -279,18 +377,29 @@ function FurnishEditor({
             />
           ) : null}
         </View>
-        {state.notice ? (
-          <View className="absolute inset-x-3 bottom-3" pointerEvents="box-none">
-            <Banner
-              tone={state.notice.kind === 'removed' ? 'info' : 'error'}
-              text={noticeText(state.notice, nameOf, productName)}
-              action={
-                state.notice.kind === 'removed'
-                  ? { label: 'Undo', onPress: () => dispatch({ type: 'undo-remove' }) }
-                  : undefined
-              }
-              onDismiss={() => dispatch({ type: 'dismiss-notice' })}
-            />
+        {shot || state.notice ? (
+          <View className="absolute inset-x-3 bottom-3 gap-2" pointerEvents="box-none">
+            {shot ? (
+              <ShotNotice
+                shot={shot}
+                queue={uploads.queue}
+                active={uploads.active}
+                online={online}
+                onDismiss={dismissShot}
+              />
+            ) : null}
+            {state.notice ? (
+              <Banner
+                tone={state.notice.kind === 'removed' ? 'info' : 'error'}
+                text={noticeText(state.notice, nameOf, productName)}
+                action={
+                  state.notice.kind === 'removed'
+                    ? { label: 'Undo', onPress: () => dispatch({ type: 'undo-remove' }) }
+                    : undefined
+                }
+                onDismiss={() => dispatch({ type: 'dismiss-notice' })}
+              />
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -321,10 +430,25 @@ function FurnishEditor({
                 ? 'Add a piece, then drag it where you want it. It snaps to walls.'
                 : `${state.items.length} ${state.items.length === 1 ? 'piece' : 'pieces'}. Tap one to move, turn or remove it.`}
             </Text>
-            <Button size="lg" onPress={() => setPicking(true)}>
-              <Icon as={LuPlus} size={18} />
-              <Text>Add furniture</Text>
-            </Button>
+            <View className="flex-row gap-3">
+              <Button size="lg" className="flex-1 px-4" onPress={() => setPicking(true)}>
+                <Icon as={LuPlus} size={18} />
+                <Text>Add furniture</Text>
+              </Button>
+              {mode === '3d' ? (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="flex-1 px-4"
+                  onPress={() => void takePicture()}
+                  disabled={capturing}
+                  accessibilityHint="Takes a picture of the room as the 3D view shows it, and saves it to Photos and to the room."
+                >
+                  <Icon as={LuCamera} size={18} />
+                  <Text>{capturing ? 'Taking…' : 'Take picture'}</Text>
+                </Button>
+              ) : null}
+            </View>
           </View>
         )}
       </View>

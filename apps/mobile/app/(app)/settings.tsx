@@ -1,6 +1,8 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Alert as NativeAlert, Pressable, ScrollView, View } from 'react-native';
 import { LuChevronRight, LuFlaskConical, LuLogOut } from 'react-icons/lu';
+import { ScanTipsSheet } from '@/components/scan/scan-tips';
 import { UnitsToggle } from '@/components/units-toggle';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -16,6 +18,7 @@ export default function SettingsScreen() {
   const user = useUser();
   const router = useRouter();
   const [units, setUnits] = useUnits();
+  const [tips, setTips] = useState(false);
 
   const confirmSignOut = () => {
     NativeAlert.alert('Sign out?', user.email ? `You are signed in as ${user.email}.` : undefined, [
@@ -44,6 +47,20 @@ export default function SettingsScreen() {
           </View>
           <Separator />
           <Pressable
+            onPress={() => setTips(true)}
+            accessibilityRole="button"
+            className="flex-row items-center justify-between gap-4 py-3 active:opacity-70"
+          >
+            <View className="flex-1">
+              <Text className="text-sm font-medium">Scanning tips</Text>
+              <Text className="text-muted-foreground text-xs">
+                The four tips shown before your first scan
+              </Text>
+            </View>
+            <Icon as={LuChevronRight} size={18} className="text-muted-foreground" />
+          </Pressable>
+          <Separator />
+          <Pressable
             onPress={() => router.push('/credits')}
             accessibilityRole="button"
             className="flex-row items-center justify-between gap-4 py-3 active:opacity-70"
@@ -67,6 +84,7 @@ export default function SettingsScreen() {
           <Text>Sign out</Text>
         </Button>
       </View>
+      <ScanTipsSheet visible={tips} onClose={() => setTips(false)} />
     </ScrollView>
   );
 }

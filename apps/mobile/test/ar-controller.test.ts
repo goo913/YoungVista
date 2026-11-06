@@ -43,6 +43,49 @@ describe('ArController', () => {
     expect(c.getSnapshot().derived.coaching?.title).toBe('Move slowly');
   });
 
+  it('says the camera is starting, not "Move slowly", until tracking first works', () => {
+    const c = new ArController();
+    // ARKit and ARCore start out limited, with no reason given.
+    c.onTrackingUpdated(2, 1);
+    c.flush();
+    expect(c.getSnapshot().derived.coaching?.kind).toBe('starting');
+    expect(c.getSnapshot().derived.coaching?.title).toBe('Starting the camera…');
+    c.onTrackingUpdated(1, 1);
+    c.flush();
+    expect(c.getSnapshot().derived.coaching?.kind).toBe('starting');
+    c.onTrackingUpdated(3, 1);
+    c.flush();
+    expect(c.getSnapshot().state.trackedOnce).toBe(true);
+    expect(c.getSnapshot().derived.coaching).toBeNull();
+    // Lost later: now it is the user's movement.
+    c.onTrackingUpdated(2, 1);
+    c.flush();
+    expect(c.getSnapshot().derived.coaching?.kind).toBe('move-slowly');
+  });
+
+  it('still asks for light while starting in a dark room', () => {
+    const c = new ArController();
+    c.onAmbientLightUpdate({ intensity: 40 });
+    c.onTrackingUpdated(2, 1);
+    c.flush();
+    expect(c.getSnapshot().derived.coaching?.kind).toBe('more-light');
+  });
+
+  it('has finished starting when it takes over a scan that was tracking', () => {
+    const c = new ArController();
+    c.seed({
+      planes: {},
+      camera: null,
+      tracking: { state: 3, reason: 1 },
+      lightIntensity: 900,
+      floor: null,
+    });
+    expect(c.getSnapshot().state.trackedOnce).toBe(true);
+    c.onTrackingUpdated(2, 1);
+    c.flush();
+    expect(c.getSnapshot().derived.coaching?.kind).toBe('move-slowly');
+  });
+
   it('only reaches the floor in front of the phone', () => {
     const c = new ArController();
     c.onTrackingUpdated(3, 1);

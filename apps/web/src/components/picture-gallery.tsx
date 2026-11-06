@@ -39,7 +39,7 @@ export function PictureGallery({ roomId }: { roomId: string }) {
             <LuImage className="size-7 text-muted-foreground" aria-hidden />
             <p className="font-medium">No pictures yet</p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              In the phone app’s 3D view, choose an angle and tap Final picture. It will show up
+              In the phone app’s 3D view, choose an angle and tap Take picture. It will show up
               here.
             </p>
           </div>

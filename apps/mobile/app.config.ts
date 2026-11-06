@@ -11,6 +11,23 @@ const DEFAULT_APPLE_TEAM_ID = 'L276BBUKFM';
 
 const CAMERA_USE = 'YoungVista uses the camera to find the floor and walls of your room.';
 
+/** Shown once, the first time "Take picture" saves a picture (add-only access: no reading). */
+const SAVE_PHOTOS_USE =
+  'YoungVista saves the pictures you take of your rooms to your photo library. It does not read your photos.';
+
+/**
+ * Saving a picture to the gallery needs no permission on Android 11 and newer (MediaStore), and
+ * the app never reads photos, videos or audio: expo-media-library's read permissions stay out.
+ */
+const UNUSED_ANDROID_PERMISSIONS = [
+  'android.permission.READ_EXTERNAL_STORAGE',
+  'android.permission.READ_MEDIA_IMAGES',
+  'android.permission.READ_MEDIA_VIDEO',
+  'android.permission.READ_MEDIA_AUDIO',
+  'android.permission.READ_MEDIA_VISUAL_USER_SELECTED',
+  'android.permission.ACCESS_MEDIA_LOCATION',
+];
+
 /**
  * The Android template gives Gradle a 2 GB heap and 512 MB of metaspace, which this app's
  * modules outgrow (the daemon dies while configuring the build).
@@ -47,7 +64,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     version: release.version,
     orientation: 'portrait',
     userInterfaceStyle: 'automatic',
-    // The website's mark (apps/web/public/favicon.svg). Final icon and splash come in Build 4.
+    // The icon and splash images come from assets/brand/mark.svg (scripts/render-icons.mjs).
     icon: './assets/icon.png',
     ios: {
       bundleIdentifier: APP_ID,
@@ -56,25 +73,39 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       supportsTablet: false,
       infoPlist: {
         NSCameraUsageDescription: CAMERA_USE,
+        NSPhotoLibraryAddUsageDescription: SAVE_PHOTOS_USE,
         ITSAppUsesNonExemptEncryption: false,
       },
     },
     android: {
       package: APP_ID,
       versionCode: release.build,
+      adaptiveIcon: {
+        foregroundImage: './assets/adaptive-icon-foreground.png',
+        backgroundImage: './assets/adaptive-icon-background.png',
+        monochromeImage: './assets/adaptive-icon-monochrome.png',
+        backgroundColor: '#171717',
+      },
+      blockedPermissions: UNUSED_ANDROID_PERMISSIONS,
     },
     plugins: [
       'expo-router',
-      'expo-dev-client',
+      // Development builds only: no floating "Tools" gear over the screens (it sat on top of the
+      // headers). The developer menu stays one shake away (Ctrl+M or ⌘M on an Android emulator).
+      ['expo-dev-client', { toolsButton: false }],
       'expo-system-ui',
       [
         'expo-splash-screen',
         {
           image: './assets/splash-icon.png',
-          imageWidth: 120,
+          imageWidth: 150,
           backgroundColor: '#ffffff',
-          dark: { image: './assets/splash-icon.png', backgroundColor: '#0a0a0a' },
+          dark: { image: './assets/splash-icon-dark.png', backgroundColor: '#0a0a0a' },
         },
+      ],
+      [
+        'expo-media-library',
+        { savePhotosPermission: SAVE_PHOTOS_USE, granularPermissions: ['photo'] },
       ],
       [
         '@reactvision/react-viro',
@@ -85,7 +116,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             cameraUsagePermission: CAMERA_USE,
             microphoneUsagePermission: 'YoungVista does not record sound.',
             photosPermission: 'YoungVista can show your photos when you ask it to.',
-            savePhotosPermission: 'YoungVista saves pictures of your rooms to Photos.',
+            savePhotosPermission: SAVE_PHOTOS_USE,
           },
           android: { xRMode: ['AR'] },
         },

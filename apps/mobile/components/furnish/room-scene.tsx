@@ -91,6 +91,8 @@ export interface SceneState {
   orbit: Orbit;
   /** Pieces whose model could not load: the 3D view labels them (see Room3D). */
   failed: ReadonlySet<string>;
+  /** Pieces whose model is drawn: a picture waits for the others (see Room3D). */
+  ready: ReadonlySet<string>;
 }
 
 /** What the 3D view passes to the scene through Viro3DSceneNavigator's `viroAppProps`. */
@@ -129,16 +131,16 @@ function SceneNodes({ store }: RoomSceneAppProps) {
   const items = useStore(store, (s) => s.items);
   const t = sceneTransform(orbit);
   const eye = eyePosition(orbit);
-  // The 3D view labels pieces whose model could not load (see Room3D).
+  // The 3D view labels pieces whose model could not load, and a picture waits for those still
+  // loading (see Room3D).
   const onFailed = useCallback(
     (id: string, failed: boolean) =>
-      store.set((s) => {
-        if (s.failed.has(id) === failed) return s;
-        const next = new Set(s.failed);
-        if (failed) next.add(id);
-        else next.delete(id);
-        return { ...s, failed: next };
-      }),
+      store.set((s) => (s.failed.has(id) === failed ? s : { ...s, failed: toggled(s.failed, id) })),
+    [store],
+  );
+  const onReady = useCallback(
+    (id: string, ready: boolean) =>
+      store.set((s) => (s.ready.has(id) === ready ? s : { ...s, ready: toggled(s.ready, id) })),
     [store],
   );
   return (
@@ -153,7 +155,7 @@ function SceneNodes({ store }: RoomSceneAppProps) {
                 <Wall key={wall.id} wall={wall} faded={wallFacesCamera(wall, eye, 0.05)} />
               ))}
               {items.map((item) => (
-                <Furniture key={item.id} item={item} onFailed={onFailed} />
+                <Furniture key={item.id} item={item} onFailed={onFailed} onReady={onReady} />
               ))}
             </ViroNode>
           </ViroNode>
@@ -173,6 +175,14 @@ function SceneNodes({ store }: RoomSceneAppProps) {
       />
     </>
   );
+}
+
+/** A copy of `set` with `id` added, or removed if it was there. */
+function toggled(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
+  const next = new Set(set);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  return next;
 }
 
 /** Soft light all round, plus one light from above to one side that casts a shadow. */
@@ -280,10 +290,13 @@ interface FurnitureProps {
   item: SceneItem;
   /** Told whether the piece's model could not load (a stable function). */
   onFailed?: (id: string, failed: boolean) => void;
+  /** Told whether the piece's model is drawn (a stable function). */
+  onReady?: (id: string, ready: boolean) => void;
 }
 
 const sameItem = (a: FurnitureProps, b: FurnitureProps) =>
   a.onFailed === b.onFailed &&
+  a.onReady === b.onReady &&
   a.item.id === b.item.id &&
   a.item.x === b.item.x &&
   a.item.y === b.item.y &&
@@ -301,19 +314,24 @@ const sameItem = (a: FurnitureProps, b: FurnitureProps) =>
  * existing node do not always appear until that node changes again, while a changed `visible`
  * always shows. The model itself comes last, where a new child does appear.
  */
-export const Furniture = memo(function Furniture({ item, onFailed }: FurnitureProps) {
+export const Furniture = memo(function Furniture({ item, onFailed, onReady }: FurnitureProps) {
   const { uri, failed: missing } = useLocalModel(item.modelUrl);
   const [loaded, setLoaded] = useState<string | null>(null);
   const [broken, setBroken] = useState<string | null>(null);
   const failed = missing || (uri !== null && broken === uri);
   const ready = uri !== null && loaded === uri && !failed;
   const { w, d, h } = item.size;
+  // Stable across re-renders (a piece re-renders on every step of a drag).
+  const source = useMemo(() => (uri ? { uri } : null), [uri]);
 
   // The label of a piece whose model cannot load is drawn by the view over the scene, where it
   // stays sharp and readable.
   useEffect(() => {
     onFailed?.(item.id, failed);
   }, [onFailed, item.id, failed]);
+  useEffect(() => {
+    onReady?.(item.id, ready);
+  }, [onReady, item.id, ready]);
 
   return (
     <ViroNode position={[item.x, item.y, item.z]} rotation={[0, item.rotationY, 0]}>
@@ -334,13 +352,13 @@ export const Furniture = memo(function Furniture({ item, onFailed }: FurniturePr
           shadowCastingBitMask={0}
         />
       </ViroNode>
-      {uri && !failed ? (
+      {source && !failed ? (
         <Viro3DObject
-          key={uri}
-          source={{ uri }}
+          key={source.uri}
+          source={source}
           type="GLB"
-          onLoadEnd={() => setLoaded(uri)}
-          onError={() => setBroken(uri)}
+          onLoadEnd={() => setLoaded(source.uri)}
+          onError={() => setBroken(source.uri)}
         />
       ) : null}
     </ViroNode>

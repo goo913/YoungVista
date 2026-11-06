@@ -9,7 +9,7 @@
  * quad on the floor (ViroQuad's `arShadowReceiver`: ViroCore's VROARShadow on iPhone, a
  * transparent shadow material on Android). Its darkness is the light's shadow opacity minus the
  * ambient light's brightness, so the ambient light stays low and a directional light from above
- * does most of the lighting.
+ * does most of the lighting. Both follow the phone's estimate of the room's light (ar/light.ts).
  */
 import {
   ViroAmbientLight,
@@ -25,6 +25,7 @@ import { bounds, roomCenter, type LineUp, type Room, type Vec2 } from '@youngvis
 import { memo, useCallback, useMemo, useSyncExternalStore } from 'react';
 import type { ArController } from '@/ar/controller';
 import { ghostLines, type GhostLine } from '@/ar/ghost';
+import { arLights } from '@/ar/light';
 import { roomToWorld, type V3 } from '@/ar/pose';
 import { Furniture, type SceneItem } from '@/components/furnish/room-scene';
 import { useStore, type Store } from '@/lib/store';
@@ -94,7 +95,7 @@ export function ArScene(props: { sceneNavigator?: { viroAppProps?: { ar?: ArScen
 }
 
 function ArSceneContent({ controller, store }: ArSceneAppProps) {
-  const { derived } = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
+  const { state, derived } = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   const lineUp = useStore(store, (s) => s.lineUp);
   const showRoom = useStore(store, (s) => s.showRoom);
   const room = useStore(store, (s) => s.room);
@@ -104,6 +105,8 @@ function ArSceneContent({ controller, store }: ArSceneAppProps) {
   const showAim = useStore(store, (s) => s.showAim);
   const floorY = derived.floorY;
   const aim = derived.aim;
+  // Rounded levels (ar/light.ts): the lights change only when the room's light really does.
+  const { ambient, directional } = arLights(state.lightIntensity);
 
   const onFailed = useCallback(
     (id: string, failed: boolean) =>
@@ -127,7 +130,15 @@ function ArSceneContent({ controller, store }: ArSceneAppProps) {
       onCameraTransformUpdate={controller.onCameraTransformUpdate}
       onAmbientLightUpdate={controller.onAmbientLightUpdate}
     >
-      {lineUp ? <Lights lineUp={lineUp} room={room} items={items} /> : null}
+      {lineUp ? (
+        <Lights
+          lineUp={lineUp}
+          room={room}
+          items={items}
+          ambient={ambient}
+          directional={directional}
+        />
+      ) : null}
       {/* Once lined up, the room's node stays; lining up again only hides it. */}
       {lineUp ? (
         <RoomNode
@@ -149,7 +160,10 @@ function ArSceneContent({ controller, store }: ArSceneAppProps) {
   );
 }
 
-/** Light from above, a little to one side, that casts the shadows; little ambient light. */
+/**
+ * Light from above, a little to one side, that casts the shadows; little ambient light. Their
+ * intensities follow the room's light (ar/light.ts).
+ */
 const LIGHT_DIRECTION: V3 = [0.25, -1, -0.35];
 
 /** Around the room (or the pieces placed freely), where the shadow is worked out (m). */
@@ -173,10 +187,14 @@ const Lights = memo(function Lights({
   lineUp,
   room,
   items,
+  ambient,
+  directional,
 }: {
   lineUp: LineUp;
   room: Room | null;
   items: readonly SceneItem[];
+  ambient: number;
+  directional: number;
 }) {
   const area = shadowArea(lineUp, room, items);
   const len = Math.hypot(...LIGHT_DIRECTION);
@@ -186,10 +204,10 @@ const Lights = memo(function Lights({
   const at = (v: number) => Math.round(v * 4) / 4;
   return (
     <>
-      <ViroAmbientLight color="#ffffff" intensity={300} />
+      <ViroAmbientLight color="#ffffff" intensity={ambient} />
       <ViroDirectionalLight
         color="#ffffff"
-        intensity={850}
+        intensity={directional}
         direction={LIGHT_DIRECTION}
         castsShadow
         shadowOpacity={0.7}
@@ -210,9 +228,10 @@ const Lights = memo(function Lights({
 /**
  * The room in room space: the shadow-catching floor, the ghost walls (always there, shown or
  * hidden: on Android a changed `visible` always shows, a new child sometimes does not) and the
- * furniture last, where new pieces do appear.
+ * furniture last, where new pieces do appear. Memoised: the scene re-renders with every tracking
+ * update (ten times a second), the room only when it changes.
  */
-function RoomNode({
+const RoomNode = memo(function RoomNode({
   lineUp,
   visible,
   room,
@@ -240,7 +259,7 @@ function RoomNode({
       ))}
     </ViroNode>
   );
-}
+});
 
 /** An invisible floor that only shows the furniture's shadows. */
 const ShadowFloor = memo(function ShadowFloor({

@@ -9,7 +9,14 @@
  * AR scene and the screen read it through `subscribe`/`getSnapshot` (useSyncExternalStore).
  */
 import { hitLevelPlane, type CameraRay, type Vec2 } from '@youngvista/core';
-import { coachingFor, TRACKING_STATE, type Coaching, type TrackingInfo } from '@/scan/coaching';
+import {
+  coachingFor,
+  coachingMessage,
+  TRACKING_REASON,
+  TRACKING_STATE,
+  type Coaching,
+  type TrackingInfo,
+} from '@/scan/coaching';
 import { floorStatus, nextFloor, type FloorState, type FloorStatus } from '@/scan/floor';
 import { floorPosition, rayFromCamera } from '@/scan/geometry';
 import { rememberPose, steadyPose, type TimedPose } from '@/scan/steady';
@@ -34,6 +41,8 @@ export interface ArState {
   limitedSince: number | null;
   /** How many times tracking came back after being lost for a while. */
   recoveries: number;
+  /** Tracking has been normal at least once: the camera has finished starting. */
+  trackedOnce: boolean;
 }
 
 /** Where the dot in the middle of the screen meets the floor (world), or why it does not. */
@@ -69,6 +78,7 @@ export function createArState(): ArState {
     floor: null,
     limitedSince: null,
     recoveries: 0,
+    trackedOnce: false,
   };
 }
 
@@ -81,12 +91,32 @@ export function floorAim(camera: CameraPose | null, floor: FloorState | null): F
   return { ok: true, point: hit.point, y: floor.y, distance: hit.distance };
 }
 
+/**
+ * The coaching to show. While the camera is still starting (tracking has never been normal yet),
+ * the phone reports limited tracking with no reason, which the scan's coaching reads as "Move
+ * slowly": that would blame the user for the camera warming up, so it says "Starting the
+ * camera…" instead. Real fast movement still says "Move slowly".
+ */
+export function arCoaching(
+  state: Pick<ArState, 'tracking' | 'lightIntensity' | 'trackedOnce'>,
+): Coaching | null {
+  const coaching = coachingFor({ tracking: state.tracking, lightIntensity: state.lightIntensity });
+  if (
+    coaching?.kind === 'move-slowly' &&
+    !state.trackedOnce &&
+    state.tracking?.reason !== TRACKING_REASON.EXCESSIVE_MOTION
+  ) {
+    return coachingMessage('starting');
+  }
+  return coaching;
+}
+
 export function deriveAr(state: ArState): ArDerived {
   const cameraY = state.camera?.position[1] ?? null;
   return {
     floorStatus: floorStatus(state.floor, state.planes, cameraY),
     floorY: state.floor?.y ?? null,
-    coaching: coachingFor({ tracking: state.tracking, lightIntensity: state.lightIntensity }),
+    coaching: arCoaching(state),
     aim: floorAim(state.camera, state.floor),
     cameraFloor: state.camera ? floorPosition(state.camera) : null,
   };
@@ -162,7 +192,13 @@ export class ArController {
         if (t - limitedSince >= LOST_FOR_MS) recoveries++;
         limitedSince = null;
       }
-      return { ...s, tracking: { state, reason }, limitedSince, recoveries };
+      return {
+        ...s,
+        tracking: { state, reason },
+        limitedSince,
+        recoveries,
+        trackedOnce: s.trackedOnce || normal,
+      };
     });
   };
 
@@ -180,7 +216,8 @@ export class ArController {
 
   /** Takes over what a scan in the same AR session already knows: its planes, floor and camera. */
   seed(seed: ArSeed): void {
-    this.set({ ...this.state, ...seed, limitedSince: null });
+    const trackedOnce = this.state.trackedOnce || seed.tracking?.state === TRACKING_STATE.NORMAL;
+    this.set({ ...this.state, ...seed, limitedSince: null, trackedOnce });
   }
 
   /** The finger touched a button that uses the aim: it is taken from just before this moment. */

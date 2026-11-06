@@ -115,8 +115,10 @@ npx expo start --dev-client   # later, with the development build already instal
 ```
 
 It has the same app ID as the Release build, so each replaces the other. After changing
-`app.config.ts`, `release.json`, `GOOGLE_IOS_URL_SCHEME` in `.env` or a package with native code,
-run `npx expo prebuild --clean` first (`npm run iphone` and `npm run android` notice by themselves).
+`app.config.ts`, `release.json`, `GOOGLE_IOS_URL_SCHEME` in `.env`, a package with native code or
+the app's own native module (`apps/mobile/modules/`), run `npx expo prebuild --clean` first
+(`npm run iphone` and `npm run android` notice by themselves). The developer menu opens by shaking
+the phone: the floating "Tools" button is turned off, because it covered the screens' top bars.
 
 ## Where things are
 

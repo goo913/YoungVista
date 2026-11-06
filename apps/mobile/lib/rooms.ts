@@ -9,7 +9,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from './auth';
 import { errorCode } from './auth-errors';
 import { firestore } from './firebase';
@@ -47,6 +47,8 @@ export type Loadable<T> =
 export type RoomsState = Loadable<RoomSummary[]> & {
   /** False while the app cannot reach the server (the list may be the phone's copy). */
   online: boolean;
+  /** After an error: listens to the server again. */
+  retry: () => void;
 };
 
 /**
@@ -56,6 +58,11 @@ export type RoomsState = Loadable<RoomSummary[]> & {
 export function useRooms(uid: string): RoomsState {
   const [state, setState] = useState<Loadable<RoomSummary[]>>({ status: 'loading' });
   const [online, setOnline] = useState(true);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setState({ status: 'loading' });
+    setAttempt((n) => n + 1);
+  }, []);
   useEffect(() => {
     let live = true;
     let fromServer = false;
@@ -107,13 +114,15 @@ export function useRooms(uid: string): RoomsState {
       live = false;
       stop();
     };
-  }, [uid]);
-  return { ...state, online };
+  }, [uid, attempt]);
+  return { ...state, online, retry };
 }
 
 export type RoomState = Loadable<RoomSummary> & {
   /** False while the app cannot reach the server (what is shown may be the phone's copy). */
   online: boolean;
+  /** After an error: listens to the server again. */
+  retry: () => void;
   /**
    * True once Firestore has answered (from the server, or from its memory when offline): until
    * then what is shown may be an older copy from the phone. Editors wait for it.
@@ -131,6 +140,11 @@ export function useRoom(roomId: string): RoomState {
   const [state, setState] = useState<Loadable<RoomSummary>>({ status: 'loading' });
   const [online, setOnline] = useState(true);
   const [settled, setSettled] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setState({ status: 'loading' });
+    setAttempt((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -201,9 +215,9 @@ export function useRoom(roomId: string): RoomState {
       stop();
       stopPending();
     };
-  }, [uid, roomId]);
+  }, [uid, roomId, attempt]);
 
-  return { ...state, online, settled };
+  return { ...state, online, settled, retry };
 }
 
 /** Saves a scanned room and returns its id. */

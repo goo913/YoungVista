@@ -8,6 +8,7 @@ import {
   type Auth,
 } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore, type Firestore } from 'firebase/firestore';
+import { connectStorageEmulator, getStorage, type FirebaseStorage } from 'firebase/storage';
 import { emulatorHostFor, EMULATOR_CONFIG, EMULATOR_PORTS } from './emulator';
 
 // Expo inlines EXPO_PUBLIC_* from apps/mobile/.env at build time; each must be read by its full
@@ -40,6 +41,7 @@ export const missingFirebaseSettings: string[] = emulatorHost
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
 
 export function firebaseApp(): FirebaseApp {
   app ??=
@@ -94,4 +96,24 @@ export function firestore(): Firestore {
     }
   }
   return db;
+}
+
+/**
+ * Cloud Storage (the final pictures). A failed upload gives up after a minute instead of the
+ * SDK's ten: the app's own queue (lib/pictures.ts) keeps the picture and tries again later.
+ */
+export function firebaseStorage(): FirebaseStorage {
+  if (!storage) {
+    storage = getStorage(firebaseApp());
+    storage.maxUploadRetryTime = 60_000;
+    storage.maxOperationRetryTime = 30_000;
+    if (emulatorHost) {
+      try {
+        connectStorageEmulator(storage, emulatorHost, EMULATOR_PORTS.storage);
+      } catch {
+        // Fast Refresh: this Storage instance is already connected.
+      }
+    }
+  }
+  return storage;
 }

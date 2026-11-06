@@ -15,6 +15,7 @@
     "components",
     "furnish",
     "lib",
+    "modules",
     "room-edit",
     "scan",
     "test",
