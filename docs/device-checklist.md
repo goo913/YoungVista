@@ -114,3 +114,63 @@ only a phone can show: the iPhone's 3D drawing, real fingers, and the speed of a
 
 - [ ] Settings → **3D model credits** (also at the bottom of the furniture picker) lists every
       CC BY model with its author, licence and source link; the links open.
+
+## Build 3: the room in the camera view (AR) and share links
+
+Phone: the owner's **iPhone 15**, in good light. Use a room furnished in Build 2 with three or
+more pieces (a door or window on the plan helps). The Android emulator check passed for the share
+link, and the AR screens open there (without a camera picture: an emulator has no ARCore). AR
+itself needs a real phone, so everything else below is first proven here. Note the gaps you
+measure in centimetres or inches.
+
+### Line up a saved room
+
+- [ ] Room page → **See it in your room**. The camera opens and says "Point at the floor" until
+      the floor is found.
+- [ ] The small plan shows corners 1 and 2 (the ends of the longest wall) and the banner names
+      the first ("Aim at the corner by the door", or "Aim at corner 1"). Put the dot where the
+      walls meet the floor there and tap **Corner here**: a yellow post marks it. Then corner 2.
+- [ ] It says "Lined up, … off" (write down the number). The furniture appears at its saved
+      spots, at true size, with soft shadows on the real floor.
+- [ ] The ghost walls (box button, top right) sit on the real walls, doors and windows. Write
+      down the worst gap at the far corners. The box button hides and shows them.
+- [ ] Tap corner 2 a metre short of the corner: it says "That did not line up" and asks again.
+      **Other corners** asks for the ends of another wall instead.
+
+### Walk around
+
+- [ ] Walk round the room for a minute, look from the far side and from close up: the furniture
+      stays where it was put, on the floor. Write down any drift.
+- [ ] Cover the camera with your hand for 3 seconds, then uncover it: "Things may have moved"
+      appears. **Line up again** asks for the corners again; **Cancel** brings back the old
+      line-up. The crosshair button (top right) does the same at any time.
+
+### Move and add in the camera view
+
+- [ ] Tap a piece: a blue mark appears under it and the card shows its name and size. Drag it along
+      the floor: it follows the finger, snaps flush to a wall within about 6 inches, turns red
+      over another piece and goes back when let go. Two fingers turn it; so do the 15° buttons.
+- [ ] Aim the dot at an open patch of floor, tap **Add furniture**, pick a piece: it lands on the
+      dot, facing you, and the label under the top bar says "Saved".
+- [ ] Close, then **Furniture and 3D**: the moved and added pieces are there. The website shows
+      them too.
+
+### Right after a scan
+
+- [ ] Scan a room, tap Next, save it. "Room saved" → **See it in your room**: no corner taps; it
+      says "Lined up from the scan" and the ghost walls sit on the real walls. Add a piece, close:
+      the room page has it.
+
+### Place freely
+
+- [ ] Rooms list → **Place freely** (also in the furniture picker): find the floor, add two
+      pieces, move, turn and remove them. Close and open it again: nothing was kept.
+
+### Share link
+
+- [ ] Room page → Share → **Create private link**: the share sheet opens; send the link to
+      yourself.
+- [ ] On a computer, in a private window (signed out), the link shows the room in 3D with its
+      furniture.
+- [ ] Move a piece in the app, tap **Update shared copy**, reload the page: it shows the move.
+- [ ] **Turn off link**: the page says "Link not found or turned off".

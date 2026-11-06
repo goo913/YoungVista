@@ -26,7 +26,7 @@ import {
   type RoomMeshes,
   type WallMesh,
 } from '@youngvista/core';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { eyePosition, FIELD_OF_VIEW, sceneTransform, type Orbit } from '@/furnish/orbit';
 import { models } from '@/lib/catalog';
 import { useStore, type Store } from '@/lib/store';
@@ -129,6 +129,18 @@ function SceneNodes({ store }: RoomSceneAppProps) {
   const items = useStore(store, (s) => s.items);
   const t = sceneTransform(orbit);
   const eye = eyePosition(orbit);
+  // The 3D view labels pieces whose model could not load (see Room3D).
+  const onFailed = useCallback(
+    (id: string, failed: boolean) =>
+      store.set((s) => {
+        if (s.failed.has(id) === failed) return s;
+        const next = new Set(s.failed);
+        if (failed) next.add(id);
+        else next.delete(id);
+        return { ...s, failed: next };
+      }),
+    [store],
+  );
   return (
     <>
       <ViroNode position={t.push}>
@@ -141,7 +153,7 @@ function SceneNodes({ store }: RoomSceneAppProps) {
                 <Wall key={wall.id} wall={wall} faded={wallFacesCamera(wall, eye, 0.05)} />
               ))}
               {items.map((item) => (
-                <Furniture key={item.id} item={item} store={store} />
+                <Furniture key={item.id} item={item} onFailed={onFailed} />
               ))}
             </ViroNode>
           </ViroNode>
@@ -264,11 +276,14 @@ function useLocalModel(url: string | null): { uri: string | null; failed: boolea
   return { uri: null, failed: false };
 }
 
-const sameItem = (
-  a: { item: SceneItem; store: Store<SceneState> },
-  b: { item: SceneItem; store: Store<SceneState> },
-) =>
-  a.store === b.store &&
+interface FurnitureProps {
+  item: SceneItem;
+  /** Told whether the piece's model could not load (a stable function). */
+  onFailed?: (id: string, failed: boolean) => void;
+}
+
+const sameItem = (a: FurnitureProps, b: FurnitureProps) =>
+  a.onFailed === b.onFailed &&
   a.item.id === b.item.id &&
   a.item.x === b.item.x &&
   a.item.y === b.item.y &&
@@ -280,18 +295,13 @@ const sameItem = (
   a.item.size === b.item.size;
 
 /**
- * A piece of furniture. Its helper parts (the box shown while loading or when the model is
- * missing, the selection mark) always exist and are shown or hidden: on Android, Viro
- * nodes added to an existing node do not always appear until that node changes again, while a
- * changed `visible` always shows. The model itself comes last, where a new child does appear.
+ * A piece of furniture, true size, in the coordinates of the node it is in (room space in the 3D
+ * view and in AR). Its helper parts (the box shown while loading or when the model is missing,
+ * the selection mark) always exist and are shown or hidden: on Android, Viro nodes added to an
+ * existing node do not always appear until that node changes again, while a changed `visible`
+ * always shows. The model itself comes last, where a new child does appear.
  */
-const Furniture = memo(function Furniture({
-  item,
-  store,
-}: {
-  item: SceneItem;
-  store: Store<SceneState>;
-}) {
+export const Furniture = memo(function Furniture({ item, onFailed }: FurnitureProps) {
   const { uri, failed: missing } = useLocalModel(item.modelUrl);
   const [loaded, setLoaded] = useState<string | null>(null);
   const [broken, setBroken] = useState<string | null>(null);
@@ -299,18 +309,11 @@ const Furniture = memo(function Furniture({
   const ready = uri !== null && loaded === uri && !failed;
   const { w, d, h } = item.size;
 
-  // The label of a piece whose model cannot load is drawn by the 3D view over the scene, where
-  // it stays sharp and readable.
+  // The label of a piece whose model cannot load is drawn by the view over the scene, where it
+  // stays sharp and readable.
   useEffect(() => {
-    const id = item.id;
-    store.set((s) => {
-      if (s.failed.has(id) === failed) return s;
-      const next = new Set(s.failed);
-      if (failed) next.add(id);
-      else next.delete(id);
-      return { ...s, failed: next };
-    });
-  }, [store, item.id, failed]);
+    onFailed?.(item.id, failed);
+  }, [onFailed, item.id, failed]);
 
   return (
     <ViroNode position={[item.x, item.y, item.z]} rotation={[0, item.rotationY, 0]}>

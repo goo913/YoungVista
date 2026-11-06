@@ -1,63 +1,84 @@
-import { describeRoomSize, formatArea, roomArea, scaleRoom } from '@youngvista/core';
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+/**
+ * Reviewing a scanned room before saving it: the plan, its sizes, an optional tape-measure
+ * correction, and its name. Shown by the scan screen over its AR session, which keeps running
+ * underneath so that the saved room can be shown in the camera view straight away, lined up
+ * from the scan (see app/(app)/scan.tsx).
+ */
+import {
+  describeRoomSize,
+  formatArea,
+  roomArea,
+  scaleRoom,
+  type CapturePlatform,
+  type Room,
+} from '@youngvista/core';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
-import { LuInfo } from 'react-icons/lu';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FloorPlan } from '@/components/floor-plan';
 import { FormError } from '@/components/form-error';
 import { RoomFacts } from '@/components/room-facts';
 import { ScaleCheck } from '@/components/scan/scale-check';
 import { UnitsToggle } from '@/components/units-toggle';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
-import { useUser } from '@/lib/auth';
 import { saveErrorMessage, saveScannedRoom } from '@/lib/rooms';
 import { useUnits } from '@/lib/units';
-import { clearRoomDraft, getRoomDraft } from '@/scan/draft';
-import type { ScanLogDetails } from '@/scan/scan-log';
 
-export default function ReviewScreen() {
-  const router = useRouter();
-  const user = useUser();
+/** A scanned room on its way to being saved. */
+export interface RoomDraft {
+  room: Room;
+  /** Indices into `room.walls` of walls no mark was on (they were filled in). */
+  inferredWalls: number[];
+  platform: CapturePlatform;
+}
+
+/** What the review has made of the draft so far (for the scan log when the user leaves). */
+export interface ReviewProgress {
+  room: Room;
+  scaleFactor: number;
+  error: string | null;
+}
+
+export interface SavedRoom {
+  id: string;
+  name: string;
+  /** The room as saved (after any tape-measure correction). */
+  room: Room;
+  /** The tape-measure correction (1 = none). */
+  scaleFactor: number;
+}
+
+export function RoomReview({
+  draft,
+  ownerId,
+  onProgress,
+  onSaved,
+  onScanAgain,
+  onDiscard,
+}: {
+  draft: RoomDraft;
+  ownerId: string;
+  onProgress: (progress: ReviewProgress) => void;
+  onSaved: (saved: SavedRoom) => void;
+  onScanAgain: () => void;
+  onDiscard: () => void;
+}) {
+  const insets = useSafeAreaInsets();
   const [units, setUnits] = useUnits();
-  const [draft] = useState(getRoomDraft);
-  const [room, setRoom] = useState(() => draft?.room ?? null);
+  const [room, setRoom] = useState(draft.room);
   const [scaleFactor, setScaleFactor] = useState(1);
   const [name, setName] = useState('My room');
   const [saving, setSaving] = useState(false);
   const [slow, setSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // The scan's log: written once, when the room is saved or dropped (scan-log.ts).
-  const latest = useRef({ room, scaleFactor, error });
   useEffect(() => {
-    latest.current = { room, scaleFactor, error };
-  });
-  const writeLog = useCallback(
-    (details: Pick<ScanLogDetails, 'outcome' | 'roomId' | 'failure'>) => {
-      const log = draft?.log;
-      if (!log || log.logger.done) return;
-      const { room: r, scaleFactor: f } = latest.current;
-      log.logger.finish(log.record, { ...details, room: r, scaleFactor: f });
-    },
-    [draft],
-  );
-  const mounted = useRef(false);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      setTimeout(() => {
-        if (mounted.current) return;
-        const failure = latest.current.error;
-        writeLog(failure ? { outcome: 'failed', failure } : { outcome: 'abandoned' });
-      }, 0);
-    };
-  }, [writeLog]);
+    onProgress({ room, scaleFactor, error });
+  }, [onProgress, room, scaleFactor, error]);
 
   // A save waits for the server: say so when the connection is slow instead of spinning quietly.
   useEffect(() => {
@@ -66,49 +87,20 @@ export default function ReviewScreen() {
     return () => clearTimeout(timer);
   }, [saving]);
 
-  const scanAgain = () => {
-    writeLog({ outcome: 'abandoned' });
-    clearRoomDraft();
-    router.replace('/scan');
-  };
-  const discard = () => {
-    writeLog({ outcome: 'abandoned' });
-    clearRoomDraft();
-    router.replace('/');
-  };
-
-  if (!draft || !room) {
-    return (
-      <View className="bg-background flex-1 gap-4 p-4">
-        <Alert icon={LuInfo}>
-          <AlertDescription>There is no scanned room to review.</AlertDescription>
-        </Alert>
-        <Button onPress={scanAgain}>
-          <Text>Scan a room</Text>
-        </Button>
-        <Button variant="ghost" onPress={discard}>
-          <Text>Back to your rooms</Text>
-        </Button>
-      </View>
-    );
-  }
-
   const save = async () => {
     setSaving(true);
     setSlow(false);
     setError(null);
     try {
       const id = await saveScannedRoom({
-        ownerId: user.uid,
+        ownerId,
         name,
         units,
         room,
         platform: draft.platform,
         scaleFactor,
       });
-      writeLog({ outcome: 'saved', roomId: id });
-      clearRoomDraft();
-      router.replace({ pathname: '/rooms/[id]', params: { id } });
+      onSaved({ id, name: name.trim() || 'Untitled room', room, scaleFactor });
     } catch (e) {
       setError(saveErrorMessage(e));
       setSaving(false);
@@ -123,11 +115,15 @@ export default function ReviewScreen() {
   const filled = draft.inferredWalls.length;
   return (
     <KeyboardAvoidingView
-      className="bg-background flex-1"
+      className="bg-background absolute inset-0"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
     >
-      <ScrollView contentContainerClassName="gap-4 p-4 pb-10" keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerClassName="gap-4 p-4"
+        contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text className="text-xl font-semibold">Review room</Text>
         <View className="flex-row items-center justify-between gap-3">
           <Text className="text-muted-foreground flex-1 text-sm">
             Check the plan, then name the room and save it.
@@ -173,18 +169,17 @@ export default function ReviewScreen() {
         <FormError message={error} />
         {saving && slow ? (
           <Text className="text-muted-foreground text-sm">
-            Still saving. Check the phone's internet connection and keep the app open until the room
-            page appears.
+            Still saving. Check the phone's internet connection and keep the app open.
           </Text>
         ) : null}
         <Button size="lg" onPress={() => void save()} disabled={saving || !name.trim()}>
           <Text>{saving ? 'Saving…' : 'Save room'}</Text>
         </Button>
         <View className="flex-row gap-3">
-          <Button variant="outline" className="flex-1" onPress={scanAgain} disabled={saving}>
+          <Button variant="outline" className="flex-1" onPress={onScanAgain} disabled={saving}>
             <Text>Scan again</Text>
           </Button>
-          <Button variant="ghost" className="flex-1" onPress={discard} disabled={saving}>
+          <Button variant="ghost" className="flex-1" onPress={onDiscard} disabled={saving}>
             <Text>Discard</Text>
           </Button>
         </View>

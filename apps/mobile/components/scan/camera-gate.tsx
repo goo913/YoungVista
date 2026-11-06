@@ -36,12 +36,40 @@ async function currentGate(): Promise<GateState> {
   return (await hasCamera()) ? 'ready' : 'ask';
 }
 
+/** What the camera is for: scanning a room, or furniture in the camera view. */
+const COPY = {
+  scan: {
+    unsupported: 'This phone cannot scan rooms',
+    unsupportedBody:
+      'Scanning needs augmented reality (ARKit on iPhone, Google Play Services for AR on Android), which this phone does not support.',
+    ask: 'YoungVista uses the camera to find the floor and the walls of your room. No photos or video are kept or uploaded: only the floor plan, and a small technical log of the scan that helps us improve it.',
+    denied: 'To scan a room, turn on Camera for YoungVista in Settings, then come back.',
+  },
+  ar: {
+    unsupported: 'This phone cannot show furniture in the camera view',
+    unsupportedBody:
+      'It needs augmented reality (ARKit on iPhone, Google Play Services for AR on Android), which this phone does not support. The 3D view works on every phone.',
+    ask: 'YoungVista uses the camera to show furniture at its real size in your room. No photos or video are kept or uploaded.',
+    denied:
+      'To see furniture in your room, turn on Camera for YoungVista in Settings, then come back.',
+  },
+} as const;
+
 /**
  * Shows its children (the AR view) only on a phone that can run AR and once the camera is
  * allowed. Asks for the camera with an explanation first, and points to Settings if it was
  * turned off.
  */
-export function CameraGate({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+export function CameraGate({
+  children,
+  onClose,
+  purpose = 'scan',
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  purpose?: keyof typeof COPY;
+}) {
+  const copy = COPY[purpose];
   const [state, setState] = useState<GateState>('checking');
   const waiting = state === 'ask' || state === 'denied';
 
@@ -86,8 +114,8 @@ export function CameraGate({ children, onClose }: { children: ReactNode; onClose
       return (
         <GateMessage
           icon={LuSmartphone}
-          title="This phone cannot scan rooms"
-          body="Scanning needs augmented reality (ARKit on iPhone, Google Play Services for AR on Android), which this phone does not support."
+          title={copy.unsupported}
+          body={copy.unsupportedBody}
           primary={{ label: 'Back', onPress: onClose }}
         />
       );
@@ -96,7 +124,7 @@ export function CameraGate({ children, onClose }: { children: ReactNode; onClose
         <GateMessage
           icon={LuCamera}
           title="Allow the camera"
-          body="YoungVista uses the camera to find the floor and the walls of your room. No photos or video are kept or uploaded: only the floor plan, and a small technical log of the scan that helps us improve it."
+          body={copy.ask}
           primary={{ label: 'Allow camera', onPress: () => void ask() }}
           secondary={{ label: 'Not now', onPress: onClose }}
         />
@@ -106,7 +134,7 @@ export function CameraGate({ children, onClose }: { children: ReactNode; onClose
         <GateMessage
           icon={LuCameraOff}
           title="Camera access is off"
-          body="To scan a room, turn on Camera for YoungVista in Settings, then come back."
+          body={copy.denied}
           primary={{ label: 'Open Settings', onPress: () => void Linking.openSettings() }}
           secondary={{ label: 'Back', onPress: onClose }}
         />

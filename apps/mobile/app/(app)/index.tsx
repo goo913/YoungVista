@@ -9,6 +9,7 @@ import {
   LuSettings,
   LuSquareDashed,
   LuTriangleAlert,
+  LuView,
 } from 'react-icons/lu';
 import { FloorPlan } from '@/components/floor-plan';
 import { UnitsToggle } from '@/components/units-toggle';
@@ -77,7 +78,10 @@ export default function RoomsScreen() {
               </Alert>
             ) : null}
             {rooms.status === 'ready' && rooms.data.length === 0 ? (
-              <EmptyRooms onScan={() => router.push('/scan')} />
+              <EmptyRooms
+                onScan={() => router.push('/scan')}
+                onPlaceFreely={() => router.push('/place')}
+              />
             ) : null}
             {emulatorHost ? <SampleRoomButton ownerId={user.uid} /> : null}
           </View>
@@ -86,12 +90,21 @@ export default function RoomsScreen() {
       />
       {hasRooms ? (
         <View
-          className="absolute inset-x-0 bottom-0 px-4"
+          className="absolute inset-x-0 bottom-0 flex-row gap-3 px-4"
           style={{ paddingBottom: insets.bottom + 16 }}
         >
-          <Button size="lg" onPress={() => router.push('/scan')}>
+          <Button size="lg" className="flex-1" onPress={() => router.push('/scan')}>
             <Icon as={LuScanLine} size={18} />
             <Text>Scan a room</Text>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            onPress={() => router.push('/place')}
+            accessibilityHint="Try furniture at real size in the camera view, without a room."
+          >
+            <Icon as={LuView} size={18} />
+            <Text>Place freely</Text>
           </Button>
         </View>
       ) : null}
@@ -168,7 +181,7 @@ function RoomListSkeleton() {
   );
 }
 
-function EmptyRooms({ onScan }: { onScan: () => void }) {
+function EmptyRooms({ onScan, onPlaceFreely }: { onScan: () => void; onPlaceFreely: () => void }) {
   return (
     <Card className="items-center gap-4 px-6 py-10">
       <View className="bg-muted size-12 items-center justify-center rounded-full">
@@ -183,6 +196,10 @@ function EmptyRooms({ onScan }: { onScan: () => void }) {
       <Button size="lg" onPress={onScan}>
         <Icon as={LuScanLine} size={18} />
         <Text>Scan a room</Text>
+      </Button>
+      <Button variant="ghost" onPress={onPlaceFreely}>
+        <Icon as={LuView} size={16} />
+        <Text>Or place furniture freely, no room needed</Text>
       </Button>
     </Card>
   );

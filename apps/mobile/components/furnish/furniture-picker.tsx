@@ -1,12 +1,12 @@
 /**
  * Choosing a piece of furniture to add: categories, pictures, names and real sizes. Opens as a
- * sheet over the furniture screen.
+ * sheet over the furniture screen or the camera view (an AR session keeps running under it).
  */
 import type { CatalogItem, UnitSystem } from '@youngvista/core';
 import { useMemo, useState } from 'react';
 import { FlatList, Image, Modal, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LuArmchair, LuX } from 'react-icons/lu';
+import { LuArmchair, LuView, LuX } from 'react-icons/lu';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -21,13 +21,17 @@ export function FurniturePicker({
   onPick,
   onClose,
   onCredits,
+  onPlaceFreely,
 }: {
   visible: boolean;
   catalog: CatalogIndex;
   units: UnitSystem;
   onPick: (item: CatalogItem) => void;
   onClose: () => void;
-  onCredits: () => void;
+  /** The credits link at the bottom. Left out over the camera view: leaving it ends AR. */
+  onCredits?: () => void;
+  /** "Place freely": try pieces in the camera view, no room needed. */
+  onPlaceFreely?: () => void;
 }) {
   const groups = useMemo(() => categoryGroups(catalog.catalog), [catalog]);
   const [category, setCategory] = useState<string | null>(null);
@@ -47,8 +51,19 @@ export function FurniturePicker({
       onRequestClose={onClose}
     >
       <SafeAreaView className="bg-background flex-1" edges={['top', 'bottom']}>
-        <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
-          <Text className="text-lg font-semibold">Add furniture</Text>
+        <View className="flex-row items-center justify-between gap-2 px-4 pb-2 pt-3">
+          <Text className="flex-1 text-lg font-semibold">Add furniture</Text>
+          {onPlaceFreely ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onPress={onPlaceFreely}
+              accessibilityHint="Opens the camera to try pieces in any room, without saving."
+            >
+              <Icon as={LuView} size={14} />
+              <Text>Place freely</Text>
+            </Button>
+          ) : null}
           <Button variant="ghost" size="icon" onPress={onClose} accessibilityLabel="Close">
             <Icon as={LuX} size={20} />
           </Button>
@@ -84,11 +99,15 @@ export function FurniturePicker({
             )
           }
           ListFooterComponent={
-            <Pressable onPress={onCredits} accessibilityRole="link" className="py-4">
-              <Text className="text-muted-foreground text-center text-xs underline">
-                3D model credits and licences
-              </Text>
-            </Pressable>
+            onCredits ? (
+              <Pressable onPress={onCredits} accessibilityRole="link" className="py-4">
+                <Text className="text-muted-foreground text-center text-xs underline">
+                  3D model credits and licences
+                </Text>
+              </Pressable>
+            ) : (
+              <View className="py-4" />
+            )
           }
         />
       </SafeAreaView>

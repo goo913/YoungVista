@@ -2,9 +2,17 @@ import { formatArea, isFlatProduct, itemFootprint, roomArea } from '@youngvista/
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
-import { LuArmchair, LuCloudOff, LuInfo, LuPencilRuler, LuTriangleAlert } from 'react-icons/lu';
+import {
+  LuArmchair,
+  LuCloudOff,
+  LuInfo,
+  LuPencilRuler,
+  LuTriangleAlert,
+  LuView,
+} from 'react-icons/lu';
 import { FloorPlan, type PlanFurniture } from '@/components/floor-plan';
 import { RoomFacts } from '@/components/room-facts';
+import { ShareCard } from '@/components/share-card';
 import { UnitsToggle } from '@/components/units-toggle';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -105,6 +113,14 @@ export default function RoomScreen() {
             </Button>
             <Button
               variant="outline"
+              onPress={() => router.push({ pathname: '/rooms/[id]/ar', params: { id: roomId } })}
+              accessibilityHint="Shows the furniture at real size in your room, through the camera."
+            >
+              <Icon as={LuView} size={16} />
+              <Text>See it in your room</Text>
+            </Button>
+            <Button
+              variant="outline"
               onPress={() => router.push({ pathname: '/rooms/[id]/edit', params: { id: roomId } })}
             >
               <Icon as={LuPencilRuler} size={16} />
@@ -117,6 +133,7 @@ export default function RoomScreen() {
               ? 'No furniture yet.'
               : `${count} ${count === 1 ? 'piece' : 'pieces'} of furniture, shown at real size.`}
           </Text>
+          <ShareCard summary={room.data} />
           <Text className="text-muted-foreground text-xs">
             Sizes are approximate: check with a tape for tight gaps.
           </Text>

@@ -1,6 +1,7 @@
 import {
   designFromFirestore,
   designToFirestore,
+  isShareId,
   roomFromFirestore,
   roomToFirestore,
   type CapturePlatform,
@@ -24,7 +25,12 @@ export interface RoomSummary {
   room: Room | null;
   /** The furniture placed in the room. */
   design: Design;
+  /** The active private link (`shares/{shareId}`), or null when the room is not shared. */
+  shareId: string | null;
 }
+
+/** A share id as stored on a room: a usable one, or null. */
+const readShareId = (v: unknown): string | null => (isShareId(v) ? v : null);
 
 export function toSummary(id: string, data: DocumentData): RoomSummary {
   const name =
@@ -36,6 +42,7 @@ export function toSummary(id: string, data: DocumentData): RoomSummary {
     units: data.units === 'metric' ? 'metric' : 'imperial',
     room: roomFromFirestore(data.room),
     design: designFromFirestore(data.design),
+    shareId: readShareId(data.shareId),
   };
 }
 
@@ -88,6 +95,8 @@ interface StoredCopy {
   units: UnitSystem;
   room: unknown;
   design: Design;
+  /** Missing in copies written before Build 3. */
+  shareId?: string | null;
 }
 
 export function summaryToCache(summary: RoomSummary): string {
@@ -98,6 +107,7 @@ export function summaryToCache(summary: RoomSummary): string {
     units: summary.units,
     room: summary.room ? roomToFirestore(summary.room) : null,
     design: designToFirestore(summary.design),
+    shareId: summary.shareId,
   };
   return JSON.stringify(copy);
 }
@@ -115,6 +125,7 @@ export function summaryFromCache(id: string, text: string | null | undefined): R
       units: copy.units === 'metric' ? 'metric' : 'imperial',
       room: roomFromFirestore(copy.room),
       design: designFromFirestore(copy.design),
+      shareId: readShareId(copy.shareId),
     };
   } catch {
     return null;

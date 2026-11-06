@@ -37,8 +37,12 @@ export default function AppRoutes() {
         options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
       />
       <Stack.Screen
-        name="review"
-        options={{ title: 'Review room', headerBackVisible: false, gestureEnabled: false }}
+        name="rooms/[id]/ar"
+        options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="place"
+        options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
       />
     </Stack>
   );

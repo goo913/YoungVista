@@ -9,7 +9,6 @@
  * It also keeps what the scan log needs (scan-log.ts): the camera about twice a second, the last
  * state of every plane ever seen, and when the floor changed.
  */
-import type { Vec3Tuple } from '@youngvista/core';
 import type { TrackingInfo } from './coaching';
 import type { FloorState } from './floor';
 import {
@@ -32,12 +31,12 @@ import {
   type ScanOptions,
   type ScanState,
 } from './session';
+import { rememberPose, steadyPose, type TimedPose } from './steady';
 import {
   anchorIdOf,
   cameraPoseFromViro,
   lightIntensityFromViro,
   planeFromViroAnchor,
-  type CameraPose,
   type TrackedPlane,
 } from './viro-anchor';
 
@@ -64,9 +63,7 @@ export const POSE_STRIDE = 10;
 export const MAX_POSE_SAMPLES = 600;
 const POSE_INTERVAL_MS = 500;
 /** A mark's aim is the camera averaged over this long before the finger touched Mark (ms). */
-export const STEADY_MS = 150;
-/** ...over the moments it pointed within this many degrees of where it pointed last. */
-const STEADY_AGREEMENT_DEG = 1.5;
+export { STEADY_MS } from './steady';
 /** Most planes and floor changes kept for the log. */
 const MAX_LOGGED_PLANES = 300;
 const MAX_FLOOR_EVENTS = 50;
@@ -118,7 +115,7 @@ export class ScanController {
   private readonly startedAt: number;
 
   /** The last second of camera poses, for the steady aim. */
-  private readonly recent: { t: number; pose: CameraPose }[] = [];
+  private readonly recent: TimedPose[] = [];
   private heldAt: number | null = null;
   private poses: number[] = [];
   private poseInterval = POSE_INTERVAL_MS;
@@ -180,9 +177,7 @@ export class ScanController {
   onCameraTransformUpdate = (transform: unknown): void => {
     const pose = cameraPoseFromViro(transform);
     if (!pose) return;
-    const t = this.now();
-    this.recent.push({ t, pose });
-    while (this.recent.length > 0 && this.recent[0]!.t < t - 1000) this.recent.shift();
+    rememberPose(this.recent, this.now(), pose);
     this.samplePose(pose.position, pose.forward, pose.up);
     this.update((s) => setCamera(s, pose));
   };
@@ -205,7 +200,7 @@ export class ScanController {
   /** "Mark": records where the dot is aimed, for the current step. */
   mark(): MarkOutcome {
     this.flush();
-    const steady = this.steadyPose(this.heldAt ?? this.now());
+    const steady = steadyPose(this.recent, this.heldAt ?? this.now());
     this.heldAt = null;
     const { state, outcome } = steady
       ? markAtAim({ ...this.state, camera: steady }, this.now())
@@ -288,37 +283,6 @@ export class ScanController {
     if (this.timer !== null) clearTimeout(this.timer);
     this.timer = null;
     this.listeners.clear();
-  }
-
-  /**
-   * The camera averaged over the STEADY_MS before `at`, using only the moments it pointed where
-   * it did last (so a phone still moving onto the target is not smeared in). Null when there is
-   * nothing to average.
-   */
-  private steadyPose(at: number): CameraPose | null {
-    const before = this.recent.filter((r) => r.t <= at && r.t >= at - STEADY_MS);
-    const last = before[before.length - 1]?.pose;
-    if (!last) return null;
-    const minCos = Math.cos((STEADY_AGREEMENT_DEG * Math.PI) / 180);
-    const window = before.filter(
-      (r) =>
-        r.pose.forward[0] * last.forward[0] +
-          r.pose.forward[1] * last.forward[1] +
-          r.pose.forward[2] * last.forward[2] >=
-        minCos,
-    );
-    if (window.length < 2) return null;
-    const mean = (pick: (p: CameraPose) => Vec3Tuple, unit: boolean): Vec3Tuple => {
-      const s = [0, 1, 2].map((k) => window.reduce((acc, r) => acc + pick(r.pose)[k]!, 0));
-      const l = unit ? Math.hypot(s[0]!, s[1]!, s[2]!) : window.length;
-      return [s[0]! / l, s[1]! / l, s[2]! / l];
-    };
-    return {
-      position: mean((p) => p.position, false),
-      rotation: last.rotation,
-      forward: mean((p) => p.forward, true),
-      up: mean((p) => p.up, true),
-    };
   }
 
   private noteFloor(before: FloorState | null): void {

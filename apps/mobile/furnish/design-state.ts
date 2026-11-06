@@ -13,6 +13,7 @@ import {
   type DesignItem,
   type PlacementContext,
   type PlacementIssue,
+  type Pose,
   type ProductLookup,
   type ResolvedPlacement,
   type Room,
@@ -67,7 +68,11 @@ export interface DesignState {
 
 export type DesignAction =
   | { type: 'load'; items: DesignItem[] }
-  | { type: 'add'; productId: string; variant?: string }
+  /**
+   * A new piece: at `at` when given (where the AR view's dot meets the floor, or the nearest free
+   * spot to it), else in the nearest free spot to the room's centre.
+   */
+  | { type: 'add'; productId: string; variant?: string; at?: Pose }
   | { type: 'select'; id: string | null }
   | { type: 'drag-start'; id: string }
   /** The item's centre should go to (x, z) on the floor. */
@@ -119,6 +124,43 @@ const placement = (items: readonly DesignItem[], ctx: DesignContext): PlacementC
   items,
   product: ctx.product,
 });
+
+/** How far from the asked-for spot `placeAt` looks for a free one (m), and in what steps. */
+const NEAR_SEARCH = 2;
+const NEAR_STEP = 0.1;
+
+/**
+ * A spot for a new piece of `productId` as close to `at` as it fits: `at` itself (snapped to a
+ * wall within 15 cm, turned in 15° steps, pushed back inside the room), else the nearest free spot
+ * within 2 m, else the nearest free spot anywhere in the room. Null when nothing fits.
+ */
+export function placeAt(
+  productId: string,
+  at: Pose,
+  ctx: PlacementContext,
+): ResolvedPlacement | null {
+  if (!ctx.product(productId)) return null;
+  const there = resolvePlacement({ productId, ...at }, ctx);
+  if (there.valid) return there;
+  for (let r = NEAR_STEP; r <= NEAR_SEARCH + 1e-9; r += NEAR_STEP) {
+    const count = Math.max(8, Math.ceil((2 * Math.PI * r) / NEAR_STEP));
+    for (let k = 0; k < count; k++) {
+      const a = (2 * Math.PI * k) / count;
+      const spot = resolvePlacement(
+        {
+          productId,
+          x: at.x + r * Math.cos(a),
+          z: at.z + r * Math.sin(a),
+          rotationY: at.rotationY,
+        },
+        ctx,
+        { snapDistance: 0, clamp: false },
+      );
+      if (spot.valid) return spot;
+    }
+  }
+  return placeNewItem(productId, ctx, { start: { x: at.x, z: at.z }, rotationY: at.rotationY });
+}
 
 /**
  * Whether an item may stand exactly where it is (no snapping or pushing): inside the room and clear
@@ -228,7 +270,9 @@ export function reduceDesign(
 
     case 'add': {
       if (state.gesture || !ctx.product(action.productId)) return state;
-      const spot = placeNewItem(action.productId, placement(state.items, ctx));
+      const spot = action.at
+        ? placeAt(action.productId, action.at, placement(state.items, ctx))
+        : placeNewItem(action.productId, placement(state.items, ctx));
       if (!spot || !spot.valid) {
         return { ...state, notice: { kind: 'no-space', productId: action.productId } };
       }

@@ -20,3 +20,23 @@ PLEASE TRY
 HOW TO REPORT
 In the TestFlight app: YoungVista → Send Beta Feedback (you can add a screenshot), or tell the team. Say which room and what happened.
 ```
+
+## Build 3: furniture in your room through the camera, and share links
+
+For a build with Build 3 of the plan, paste this instead:
+
+```
+Thanks for testing YoungVista. This build shows your furnished room through the camera at real size, lets you place furniture anywhere, and makes private links to share a room. Each scan still sends the team a small technical log (no photos).
+
+PLEASE TRY
+1. Open a room you furnished and tap See it in your room. Point the phone at the floor until it is found.
+2. The small plan shows two corners, 1 and 2. Aim the dot where the walls meet the floor at corner 1 and tap Corner here, then corner 2. It says how far off it is ("Lined up, 2 cm off"); if it says it did not line up, try again or tap Other corners.
+3. The furniture appears at its saved spots with soft shadows. The box button shows or hides the faint outline of the walls, doors and windows: does it sit on the real walls? Walk around: does the furniture stay put? If things move, tap the crosshair button to line up again.
+4. Tap a piece and drag it along the floor; turn it with two fingers or the 15° buttons. Aim the dot at the floor and tap Add furniture: the piece lands on the dot. Changes are saved to the room.
+5. Scan a new room and save it, then tap See it in your room: it should be lined up already, with no corner taps.
+6. From your rooms list, tap Place freely: try pieces anywhere, no room needed. Nothing is saved.
+7. On a room page, under Share, tap Create private link and send it to yourself. Open it on a computer without signing in: you should see the room in 3D. Tap Turn off link: the page should say the link is not found.
+
+HOW TO REPORT
+In the TestFlight app: YoungVista → Send Beta Feedback (you can add a screenshot), or tell the team. Say which room and what happened, and how far off the furniture looked (in inches or centimetres).
+```

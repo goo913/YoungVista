@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
+import type { Message } from '@/scan/coaching';
 import type { ScanSnapshot } from '@/scan/controller';
 import { AIM_LABELS, type ScanDerived } from '@/scan/session';
 
@@ -33,7 +34,8 @@ export function TopBar({
   );
 }
 
-function RoundButton({
+/** A round icon button over the camera view. */
+export function RoundButton({
   icon,
   label,
   onPress,
@@ -59,8 +61,7 @@ function RoundButton({
 }
 
 /** The one thing to do now. */
-export function GuidanceBanner({ derived }: { derived: ScanDerived }) {
-  const { message } = derived;
+export function GuidanceBanner({ message }: { message: Message }) {
   return (
     <View
       className="items-center gap-1 rounded-2xl bg-black/60 px-4 py-3"

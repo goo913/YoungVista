@@ -93,7 +93,23 @@ describe('toSummary', () => {
       units: 'metric',
       room,
       design: { items: [] },
+      shareId: null,
     });
+  });
+
+  it('reads the private link, ignoring anything that cannot be a share id', () => {
+    const doc = scannedRoomDoc({
+      ownerId: 'u',
+      name: 'Den',
+      units: 'metric',
+      room,
+      platform: 'ios',
+    });
+    expect(toSummary('r1', { ...doc, shareId: 'Xk2vQ9pLm3Rt7Wy1Zb4Nc8Df' }).shareId).toBe(
+      'Xk2vQ9pLm3Rt7Wy1Zb4Nc8Df',
+    );
+    expect(toSummary('r1', { ...doc, shareId: 'short' }).shareId).toBeNull();
+    expect(toSummary('r1', { ...doc, shareId: 42 }).shareId).toBeNull();
   });
 
   it('reads the furniture, skipping unusable items', () => {
@@ -121,6 +137,7 @@ const summary: RoomSummary = {
   units: 'imperial',
   room,
   design: { items: [{ id: 'a', productId: 'sofa', x: 1, z: 2, rotationY: 0 }] },
+  shareId: 'Xk2vQ9pLm3Rt7Wy1Zb4Nc8Df',
 };
 
 describe('autosave writes', () => {
@@ -156,6 +173,10 @@ describe('the copies kept on the phone', () => {
 
   it('keep a room so it opens without a connection', () => {
     expect(summaryFromCache('r1', summaryToCache(summary))).toEqual(summary);
+    // A copy written before rooms had links reads as not shared.
+    const old = JSON.parse(summaryToCache(summary)) as Record<string, unknown>;
+    delete old.shareId;
+    expect(summaryFromCache('r1', JSON.stringify(old))?.shareId).toBeNull();
     expect(summaryFromCache('r1', null)).toBeNull();
     expect(summaryFromCache('r1', '{"v":2}')).toBeNull();
     expect(summaryFromCache('r1', 'not json')).toBeNull();

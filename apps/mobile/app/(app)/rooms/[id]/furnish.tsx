@@ -6,13 +6,12 @@
 import {
   isFlatProduct,
   itemFootprint,
-  type CatalogDimensions,
   type CatalogItem,
   type Design,
   type Room,
 } from '@youngvista/core';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LuPlus, LuSquare, LuTriangleAlert } from 'react-icons/lu';
@@ -28,27 +27,16 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { noticeText, placementProblem } from '@/furnish/describe';
-import {
-  displayedItems,
-  initialDesignState,
-  itemChecks,
-  reduceDesign,
-  selectedItem,
-  type DesignAction,
-  type DesignContext,
-  type DesignState,
-} from '@/furnish/design-state';
-import { newItemId } from '@/furnish/ids';
+import { displayedItems, itemChecks, selectedItem } from '@/furnish/design-state';
 import type { PickBox } from '@/furnish/orbit';
+import { pickBoxFor, sceneItem, UNKNOWN_SIZE } from '@/furnish/scene-items';
+import { useDesign } from '@/furnish/use-design';
 import { models, retryCatalog, useCatalog } from '@/lib/catalog';
 import { modelUrl, type CatalogIndex } from '@/lib/catalog-data';
 import type { PendingEdits, RoomSummary } from '@/lib/room-doc';
 import { saveDesign, useRoom } from '@/lib/rooms';
 import { useUnits } from '@/lib/units';
 import { useAutosave } from '@/lib/use-autosave';
-
-/** Size used for pieces whose product is not in the catalog any more. */
-const UNKNOWN_SIZE: CatalogDimensions = { w: 0.5, d: 0.5, h: 0.5 };
 
 const asPending = (design: Design): PendingEdits => ({ design });
 
@@ -107,20 +95,6 @@ export default function FurnishScreen() {
       )}
     </View>
   );
-}
-
-function useDesign(room: Room, catalog: CatalogIndex, initial: Design) {
-  const ctx = useMemo<DesignContext>(
-    () => ({ room, product: catalog.product, newId: () => newItemId() }),
-    [room, catalog],
-  );
-  // The reducer reads this render's room and catalog (React runs the latest reducer).
-  const [state, dispatch] = useReducer(
-    (s: DesignState, action: DesignAction) => reduceDesign(s, action, ctx),
-    initial.items,
-    initialDesignState,
-  );
-  return { state, dispatch, ctx };
 }
 
 function FurnishEditor({
@@ -202,29 +176,11 @@ function FurnishEditor({
   );
 
   const sceneItems = useMemo<SceneItem[]>(
-    () =>
-      shown.map((it) => {
-        const p = product(it.productId);
-        return {
-          id: it.id,
-          x: it.x,
-          y: it.y ?? 0,
-          z: it.z,
-          rotationY: it.rotationY,
-          size: p?.dimensions ?? UNKNOWN_SIZE,
-          modelUrl: p ? modelUrl(p, it.variant) : null,
-          label: p ? `${p.name} (model not available)` : 'Unknown piece',
-          highlight: highlight(it.id),
-        };
-      }),
+    () => shown.map((it) => sceneItem(it, product(it.productId), highlight(it.id))),
     [shown, product, highlight],
   );
   const boxes = useMemo<PickBox[]>(
-    () =>
-      shown.map((it) => {
-        const size = product(it.productId)?.dimensions ?? UNKNOWN_SIZE;
-        return { id: it.id, footprint: itemFootprint(it, size), y: it.y ?? 0, height: size.h };
-      }),
+    () => shown.map((it) => pickBoxFor(it, product(it.productId))),
     [shown, product],
   );
   const planItems = useMemo<PlanEditorItem[]>(
@@ -381,6 +337,10 @@ function FurnishEditor({
         onCredits={() => {
           setPicking(false);
           router.push('/credits');
+        }}
+        onPlaceFreely={() => {
+          setPicking(false);
+          router.push('/place');
         }}
         onPick={(item) => {
           setPicking(false);
