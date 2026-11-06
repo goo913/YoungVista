@@ -112,6 +112,26 @@ export const poseInWorld = (lineUp: LineUp, pose: Pose): Pose => lineUpPose(line
 /** A pose in the world (moved there in AR) back in room space, ready to save. */
 export const poseInRoom = (lineUp: LineUp, pose: Pose): Pose => lineUpPoseInverse(lineUp, pose);
 
+/**
+ * Which way the phone looks along the floor (world, not unit length), or null when it cannot
+ * tell. Looking nearly straight down, the top of the screen points the way the user faces (as
+ * scan/geometry.ts's `headingDeg` reads it).
+ */
+export function aheadOnFloor(pose: {
+  forward: readonly [number, number, number];
+  up: readonly [number, number, number];
+}): Vec2 | null {
+  const [fx, fy, fz] = pose.forward;
+  let x = fx;
+  let z = fz;
+  if (Math.hypot(fx, fz) < 0.25) {
+    const s = fy < 0 ? 1 : -1;
+    x = pose.up[0] * s;
+    z = pose.up[2] * s;
+  }
+  return Math.hypot(x, z) < 1e-3 ? null : { x, z };
+}
+
 /** True when two line-ups put the room in the same place, to within a millimetre or so. */
 export function sameLineUp(a: LineUp | null, b: LineUp | null): boolean {
   if (a === b) return true;

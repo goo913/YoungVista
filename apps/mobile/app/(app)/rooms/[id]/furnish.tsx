@@ -1,8 +1,10 @@
 /**
  * Furnishing a room: the room in 3D (or as a plan, for precise moves), a picker to add real-size
  * furniture, and a panel to turn, copy, recolour or remove the selected piece. Every change is
- * saved to `rooms/{id}.design` about a second later. "Take picture" captures the 3D view as it
- * is (the final picture): it goes to Photos and to the room's pictures (lib/pictures.ts).
+ * saved to `rooms/{id}.design` about a second later, and changes made elsewhere (the website,
+ * another phone) show up here while the user is not in the middle of one of their own
+ * (furnish/design-follow.ts). "Take picture" captures the 3D view as it is (the final picture):
+ * it goes to Photos and to the room's pictures (lib/pictures.ts).
  */
 import {
   isFlatProduct,
@@ -29,10 +31,11 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { noticeText, placementProblem } from '@/furnish/describe';
+import { noticeText, noticeTone, placementProblem } from '@/furnish/describe';
 import { displayedItems, itemChecks, selectedItem } from '@/furnish/design-state';
 import type { PickBox } from '@/furnish/orbit';
 import { pickBoxFor, sceneItem, UNKNOWN_SIZE } from '@/furnish/scene-items';
+import { useDesignFollower, useFollowServerDesign } from '@/furnish/design-follow';
 import { useDesign } from '@/furnish/use-design';
 import { useUser } from '@/lib/auth';
 import { models, retryCatalog, useCatalog } from '@/lib/catalog';
@@ -45,7 +48,7 @@ import {
   useUploadWhenOnline,
 } from '@/lib/pictures';
 import type { PendingEdits, RoomSummary } from '@/lib/room-doc';
-import { saveDesign, useRoom } from '@/lib/rooms';
+import { saveDesign, useRoom, type ServerDesign } from '@/lib/rooms';
 import { useUnits } from '@/lib/units';
 import { useAutosave } from '@/lib/use-autosave';
 import { sceneCaptureAvailable } from '@/modules/scene-capture';
@@ -77,20 +80,27 @@ export default function FurnishScreen() {
         room={room.data.room}
         online={room.online}
         catalog={catalog.data}
+        server={room.server}
+        pendingDesign={room.pendingDesign}
       />
     );
   }
 
   const problem =
-    room.status === 'missing'
-      ? { title: 'Room not found', text: 'This room does not exist or belongs to another account.' }
-      : room.status === 'error'
-        ? { title: 'Could not load', text: room.message }
-        : room.status === 'ready' && !room.data.room
-          ? { title: 'No floor plan', text: 'This room has no floor plan to furnish yet.' }
-          : catalog.status === 'error'
-            ? { title: 'No furniture list', text: catalog.message }
-            : null;
+    room.status === 'missing' && room.deleted
+      ? { title: 'This room was deleted', text: 'It is no longer on this phone or the website.' }
+      : room.status === 'missing'
+        ? {
+            title: 'Room not found',
+            text: 'This room does not exist or belongs to another account.',
+          }
+        : room.status === 'error'
+          ? { title: 'Could not load', text: room.message }
+          : room.status === 'ready' && !room.data.room
+            ? { title: 'No floor plan', text: 'This room has no floor plan to furnish yet.' }
+            : catalog.status === 'error'
+              ? { title: 'No furniture list', text: catalog.message }
+              : null;
   return (
     <View className="bg-background flex-1 items-center justify-center gap-4 p-6">
       <Stack.Screen options={{ title: 'Furnish' }} />
@@ -105,8 +115,11 @@ export default function FurnishScreen() {
               <Text>Try again</Text>
             </Button>
           ) : null}
-          <Button variant="outline" onPress={() => router.back()}>
-            <Text>Back</Text>
+          <Button
+            variant="outline"
+            onPress={() => (room.status === 'missing' ? router.dismissTo('/') : router.back())}
+          >
+            <Text>{room.status === 'missing' ? 'Back to your rooms' : 'Back'}</Text>
           </Button>
         </>
       ) : (
@@ -121,11 +134,17 @@ function FurnishEditor({
   room,
   online,
   catalog,
+  server,
+  pendingDesign,
 }: {
   summary: RoomSummary;
   room: Room;
   online: boolean;
   catalog: CatalogIndex;
+  /** The design as the server has it, to follow changes made elsewhere. */
+  server: ServerDesign | null;
+  /** A design edit made on this phone is not on the server yet. */
+  pendingDesign: boolean;
 }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -142,11 +161,20 @@ function FurnishEditor({
   const uploads = usePictureUploads();
   useUploadWhenOnline(online);
   const [flash] = useState(() => new Animated.Value(0));
+  // Changes made elsewhere show up here when the user is not in the middle of their own.
+  const follower = useDesignFollower(summary.design, server);
   const { status, change } = useAutosave({
     roomId: summary.id,
     online,
     write: saveDesign,
     asPending,
+    onSaved: follower.saved,
+  });
+  useFollowServerDesign(follower, {
+    server,
+    items: state.items,
+    busy: state.gesture !== null || pendingDesign || status !== 'saved',
+    onAdopt: (d) => dispatch({ type: 'load', items: d.items, elsewhere: true }),
   });
 
   // Save after every change the user makes (not after loading).
@@ -390,7 +418,7 @@ function FurnishEditor({
             ) : null}
             {state.notice ? (
               <Banner
-                tone={state.notice.kind === 'removed' ? 'info' : 'error'}
+                tone={noticeTone(state.notice)}
                 text={noticeText(state.notice, nameOf, productName)}
                 action={
                   state.notice.kind === 'removed'

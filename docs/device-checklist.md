@@ -241,3 +241,99 @@ fingers and speed, the AR lights).
       darker and brighter with the room's light.
 - [ ] Dragging furniture in the 3D view and moving around in AR feel as smooth as before or
       smoother.
+
+## Feedback round 1: phone
+
+Phone: the owner's **iPhone 15**, in good light, with a room furnished with three or more pieces
+(one with a door or a window on its plan helps) and two or three pictures. Install with
+`npm run iphone`: this round changes only the app's code, not its native set-up, so the build is
+the usual few minutes. The website side of this round (editing furniture there) is checked in
+its own list. The line-up, room-moving and "follow the website" rules are covered by unit tests;
+everything below needs the real iPhone.
+
+### A saved room always opens
+
+- [ ] Close the app completely (swipe it away), open it, tap a furnished room. The room page
+      opens on the room in 3D with every piece where you left it: no camera, no scan, no corner
+      taps. **Top** and **Corner** turn the view; tapping the 3D view opens the furniture screen.
+- [ ] Airplane mode on, close and open the app, tap the same room: the same 3D view opens.
+- [ ] Scroll the room page up and down with a finger on the 3D view: the page scrolls.
+
+### See it in your room never blocks
+
+- [ ] **See it in your room** → find the floor. The banner says which corner: "Corner 1: the left
+      end of the longest wall" (", by the door" when one is near it), and the small plan shows a
+      blue arrow where to stand, facing that wall.
+- [ ] Tap corner 1, then aim at corner 2: the label under the dot says how far it is from
+      corner 1 ("Corner 2 · 15′ 10″ from corner 1"). Compare it with the wall on the plan.
+- [ ] Tap corner 2: it lines up every time. Write down the title ("Lined up, 2 cm off", or
+      "Lined up. The saved room is about 30 cm shorter here.") and how far the ghost walls are
+      from the real walls at the far corners.
+- [ ] Line up again and tap the corners the other way round (corner 2 first): it lines up the
+      same, and the message says you tapped them the other way round.
+- [ ] Line up again and tap the second corner about a metre short of it: it still lines up and
+      says the saved room is longer here. Two taps less than 50 cm apart are refused ("too close
+      to corner 1").
+- [ ] **Move the room** (the arrows button at the top, or in the "Lined up" message): one finger
+      drags the whole room along the floor, two fingers turn it about the green dot, **Turn 90°**
+      turns it a quarter, **Undo** goes back, **Done** ends. The ghost walls stay on meanwhile,
+      and the blue dot on the small plan is where you stand in the room as placed.
+- [ ] Line up again → **Place by hand**: stand near the middle facing the longest wall, aim at
+      the floor in the middle of the room and tap it. The room appears around the dot; drag and
+      turn it until the ghost walls sit on the real walls, then **Done**.
+- [ ] After any of these: move a piece and add one, close. The room page's 3D view and the
+      website show the change.
+- [ ] Cover the camera for 3 seconds: "Things may have moved" → **Line up again** → **Cancel**
+      brings the line-up back (also after moving the room by hand).
+- [ ] Right after a scan, "See it in your room" still says "Lined up from the scan" with no taps;
+      **Move the room** works there too. **Place freely** works as before.
+- [ ] Point at a dark, plain floor for 15 seconds: the "Point at the floor" banner offers
+      **See it in 3D**, which goes back to the room page.
+
+### Rename, edit and delete rooms
+
+- [ ] Rooms list: the **⋯** on a room (or press and hold it) offers Rename, Edit walls, doors and
+      windows, and Delete room. The room page has the same in its **⋯** (top right) and in the
+      "This room" card at the bottom.
+- [ ] Rename: "Renamed to …" shows; the list, the room page and the website show the new name.
+      In airplane mode the new name shows at once, survives closing the app, and reaches the
+      website once the connection is back.
+- [ ] **Edit walls, doors and windows** from the ⋯ opens the room editor.
+- [ ] Delete: the sheet says what goes with the room (its furniture, pictures and link; Photos
+      keep their copies) and asks first. In airplane mode the Delete button is off and says it
+      needs a connection.
+- [ ] Delete a room that has pictures and a private link: the room page closes, the list shows
+      "Deleting…" on it, then it disappears and "Deleted …" shows. On the website the room is
+      gone and its old link says "Link not found or turned off". In the Firebase console,
+      Storage has nothing left under users/{uid}/rooms/{the room's id}/.
+- [ ] With the room's page open on the phone, delete the room on the website (if the website
+      offers it): the phone says "This room was deleted" with **Back to your rooms**.
+
+### Pictures
+
+- [ ] Furniture screen → **Take picture**: a short flash, then a card **Picture saved** with the
+      picture and two lines: "Saved to Photos" with a tick, and "Saved in this room's pictures.
+      Uploading to the website…", which turns into "…and on the website" with a tick. The card
+      stays a few seconds after both are done. The picture is in Photos.
+- [ ] The room page's empty Pictures card says "Open the 3D view" (it does not take a picture by
+      itself).
+- [ ] Room page → Pictures: press and hold a picture → **Delete**: "Picture deleted" shows, the
+      picture leaves the strip and the website's gallery, and stays in Photos. Open another one
+      full screen → **Delete picture** → the same.
+- [ ] Airplane mode on: deleting an uploaded picture says it needs a connection and keeps it. A
+      picture taken offline (not uploaded yet) deletes at once.
+
+### Changes made elsewhere show up
+
+- [ ] Open the furniture screen on the phone. On the website (or a second phone), move a piece:
+      within a few seconds the phone shows the move and says "Furniture updated: it was changed
+      on the website or another phone."
+- [ ] Do it again while holding a piece on the phone: the phone keeps your move when you let go
+      (the last change wins), and the website then shows the phone's design.
+- [ ] The same in **See it in your room**, once lined up: the piece moves in the camera view.
+
+### Clear confirmations
+
+- [ ] Share card: **Create private link** says "Private link created" and opens the share sheet;
+      **Update shared copy** says "Shared copy updated"; **Turn off link** says "Link turned off".
+- [ ] Furniture screen and room editor: the top right still says "Saving…", then "Saved".

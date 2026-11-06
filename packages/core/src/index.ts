@@ -195,16 +195,28 @@ export type {
 } from './editor';
 
 export {
+  LINE_UP_MIN_SPACING,
   lineUpFromCorners,
   lineUpFromPairs,
+  lineUpFromRoomCorners,
   lineUpCorners,
+  lineUpAt,
+  shiftLineUp,
+  turnLineUp,
   applyLineUp,
   applyLineUpInverse,
   invertLineUp,
   lineUpPose,
   lineUpPoseInverse,
 } from './lineup';
-export type { LineUp, LineUpResult, LineUpQuality, LineUpIssue, FloorTap } from './lineup';
+export type {
+  LineUp,
+  LineUpResult,
+  LineUpQuality,
+  LineUpIssue,
+  FloorTap,
+  RoomCornersLineUp,
+} from './lineup';
 
 export { designFromFirestore, designToFirestore } from './design';
 

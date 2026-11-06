@@ -16,6 +16,7 @@ import { Text } from '@/components/ui/text';
 import { useUser } from '@/lib/auth';
 import { formatDate } from '@/lib/format';
 import type { RoomSummary } from '@/lib/room-doc';
+import { toasts } from '@/lib/toast';
 import { shareView, type ShareSource } from '@/lib/share-state';
 import {
   createShare,
@@ -69,7 +70,43 @@ export function ShareCard({ summary }: { summary: RoomSummary }) {
   const create = async () => {
     if (!source) return;
     const id = await run('create', () => createShare(source));
-    if (id) send(shareUrl(id));
+    if (id) {
+      toasts.show({
+        tone: 'success',
+        title: 'Private link created',
+        detail: 'Anyone with it can see this room on the website.',
+      });
+      send(shareUrl(id));
+    }
+  };
+
+  const update = async (shareId: string) => {
+    if (!source) return;
+    const ok = await run('update', async () => {
+      await updateShare(source, shareId);
+      return true;
+    });
+    if (ok) {
+      toasts.show({
+        tone: 'success',
+        title: 'Shared copy updated',
+        detail: 'The link now shows the room as it is.',
+      });
+    }
+  };
+
+  const revoke = async (shareId: string, snapshotExists: boolean) => {
+    const ok = await run('revoke', async () => {
+      await revokeShare(summary.id, shareId, snapshotExists);
+      return true;
+    });
+    if (ok) {
+      toasts.show({
+        tone: 'success',
+        title: snapshotExists ? 'Link turned off' : 'Old link forgotten',
+        detail: snapshotExists ? 'Anyone who opens it now sees "link not found".' : undefined,
+      });
+    }
   };
 
   const turnOff = (shareId: string, snapshotExists: boolean) =>
@@ -83,7 +120,7 @@ export function ShareCard({ summary }: { summary: RoomSummary }) {
         {
           text: snapshotExists ? 'Turn off link' : 'Forget it',
           style: 'destructive',
-          onPress: () => void run('revoke', () => revokeShare(summary.id, shareId, snapshotExists)),
+          onPress: () => void revoke(shareId, snapshotExists),
         },
       ],
     );
@@ -155,7 +192,7 @@ export function ShareCard({ summary }: { summary: RoomSummary }) {
           </Button>
           <Button
             variant={view.outdated ? 'secondary' : 'outline'}
-            onPress={() => source && void run('update', () => updateShare(source, view.shareId))}
+            onPress={() => void update(view.shareId)}
             disabled={disabled || !view.canUpdate || !source}
           >
             <Icon as={LuRefreshCw} size={16} />

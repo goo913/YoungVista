@@ -13,6 +13,8 @@ interface UseAutosaveOptions<T> {
   write: (roomId: string, value: T) => Promise<void>;
   /** The value as a pending edit, kept on the phone until the server has it (module-level too). */
   asPending: (value: T) => PendingEdits;
+  /** Called when a value is on the server and no newer change is waiting. */
+  onSaved?: (value: T) => void;
 }
 
 /**
@@ -20,11 +22,21 @@ interface UseAutosaveOptions<T> {
  * value, keeps it on the phone until the server has it (so a restart loses nothing), and writes
  * at once when the screen closes or the app goes to the background.
  */
-export function useAutosave<T>({ roomId, online, write, asPending }: UseAutosaveOptions<T>) {
+export function useAutosave<T>({
+  roomId,
+  online,
+  write,
+  asPending,
+  onSaved,
+}: UseAutosaveOptions<T>) {
   const uid = useAuth().user?.uid ?? '';
   const [status, setStatus] = useState<SaveStatus>('saved');
   const queue = useRef<Autosave<T> | null>(null);
   const onlineNow = useRef(online);
+  const savedNow = useRef(onSaved);
+  useEffect(() => {
+    savedNow.current = onSaved;
+  });
 
   // One queue per room. If the effect runs again (Fast Refresh, a new room), the old queue sends
   // what it holds and a new one takes over.
@@ -32,7 +44,10 @@ export function useAutosave<T>({ roomId, online, write, asPending }: UseAutosave
     const q = new Autosave<T>({
       write: (value) => write(roomId, value),
       onStatus: setStatus,
-      onSaved: (value) => void clearPending(uid, roomId, asPending(value)),
+      onSaved: (value) => {
+        savedNow.current?.(value);
+        void clearPending(uid, roomId, asPending(value));
+      },
     });
     q.setOnline(onlineNow.current);
     queue.current = q;

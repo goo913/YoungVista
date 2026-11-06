@@ -7,13 +7,20 @@
  * coordinates into the AR world: a turn about +Y and a shift, never a scale. It also reports how
  * well the distance between the taps matches the distance between the corners.
  *
+ * A mismatch is information, never a reason to refuse. A scan is only about 90% right, so two taps
+ * on the right corners rarely match the plan exactly; the fit spreads the difference over both
+ * corners, and the user can drag and turn the room by hand afterwards (`shiftLineUp`,
+ * `turnLineUp`). Only taps or corners too close together to give a direction are unusable
+ * (`LINE_UP_MIN_SPACING`). `lineUpFromRoomCorners` takes the two corners tapped in either order,
+ * and `lineUpAt` places the room by hand, with no corners at all.
+ *
  * In ViroReact, wrap the room and its furniture in
  * `<ViroNode position={[lineUp.x, lineUp.y, lineUp.z]} rotation={[0, lineUp.rotationY, 0]}>`, or
  * convert single points and poses with `applyLineUp` and `lineUpPose`.
  */
 import type { Room, Vec2 } from './types';
 import type { Point } from './polygon';
-import { normalizeDegrees, type Pose } from './placement';
+import { normalizeDegrees, pointInRoom, type Pose } from './placement';
 import { toDegrees, toRadians } from './vec';
 
 /** Room space → AR world. */
@@ -26,8 +33,15 @@ export interface LineUp {
   z: number;
 }
 
-export type LineUpQuality = 'good' | 'fair' | 'poor';
-export type LineUpIssue = 'corners-too-close' | 'distance-mismatch';
+/**
+ * `good`: the taps match the plan within 3%, with corners at least 1.5 m apart. `fair`: within 8%
+ * and 0.75 m. `rough`: usable, but the plan and the taps differ more (the scan was off, or a tap
+ * landed a little away from its corner): shown, with the difference as information. `poor`: the
+ * taps or the corners are closer together than `LINE_UP_MIN_SPACING`, too close to tell the
+ * direction of the room.
+ */
+export type LineUpQuality = 'good' | 'fair' | 'rough' | 'poor';
+export type LineUpIssue = 'corners-too-close' | 'taps-too-close' | 'distance-mismatch';
 
 export interface LineUpResult extends LineUp {
   /** Distance between the chosen corners in the saved room (m). */
@@ -38,11 +52,8 @@ export interface LineUpResult extends LineUp {
   mismatch: number;
   /** Largest gap between a tap and its corner after the line-up (m). */
   residual: number;
-  /**
-   * `good`: mismatch up to 3% with corners at least 1.5 m apart. `fair`: up to 8% and 0.75 m.
-   * Otherwise `poor`: ask the user to tap again (`issues` says why).
-   */
   quality: LineUpQuality;
+  /** What keeps it from `good`. */
   issues: LineUpIssue[];
 }
 
@@ -51,6 +62,9 @@ export type FloorTap =
   | readonly [number, number, number]
   | readonly [number, number]
   | { x: number; y?: number; z: number };
+
+/** Taps (or corners) closer together than this give no reliable direction for the room (m). */
+export const LINE_UP_MIN_SPACING = 0.5;
 
 const GOOD = { mismatch: 0.03, distance: 1.5 };
 const FAIR = { mismatch: 0.08, distance: 0.75 };
@@ -72,6 +86,9 @@ function rotateY(p: Vec2, deg: number): Vec2 {
   const s = Math.sin(r);
   return { x: p.x * c + p.z * s, z: -p.x * s + p.z * c };
 }
+
+/** The heading of a floor direction in `rotateY`'s sense: turning by `r` adds `r` to it. */
+const heading = (v: Vec2): number => toDegrees(Math.atan2(v.x, v.z));
 
 /**
  * Least-squares line-up from two or more matching points (room corner ↔ AR tap). Null when the
@@ -132,12 +149,18 @@ export function lineUpFromPairs(
   }
   const issues: LineUpIssue[] = [];
   if (roomDistance < GOOD.distance) issues.push('corners-too-close');
+  // A micrometre of slack, so taps exactly the minimum apart count after rounding.
+  const spaced = (d: number) => d >= LINE_UP_MIN_SPACING - 1e-6;
+  if (!spaced(tappedDistance)) issues.push('taps-too-close');
   if (mismatch > GOOD.mismatch) issues.push('distance-mismatch');
-  const quality: LineUpQuality = !issues.length
-    ? 'good'
-    : mismatch <= FAIR.mismatch && roomDistance >= FAIR.distance
-      ? 'fair'
-      : 'poor';
+  const usable = spaced(roomDistance) && spaced(tappedDistance);
+  const quality: LineUpQuality = !usable
+    ? 'poor'
+    : !issues.length
+      ? 'good'
+      : mismatch <= FAIR.mismatch && roomDistance >= FAIR.distance
+        ? 'fair'
+        : 'rough';
   return { ...lineUp, roomDistance, tappedDistance, mismatch, residual, quality, issues };
 }
 
@@ -159,6 +182,70 @@ export function lineUpFromCorners(
   );
 }
 
+/** A line-up from two corners of a room, tapped in either order. */
+export interface RoomCornersLineUp extends LineUpResult {
+  /** The taps fitted the corners the other way round: the first tap was `corners[1]`. */
+  swapped: boolean;
+}
+
+/** Both orders must differ by at least this much (m) before the other order is taken. */
+const SWAP_MARGIN = 0.1;
+
+function distanceToSegment(p: Vec2, a: Vec2, b: Vec2): number {
+  const abx = b.x - a.x;
+  const abz = b.z - a.z;
+  const len2 = abx * abx + abz * abz;
+  const t = len2 > 0 ? Math.min(1, Math.max(0, ((p.x - a.x) * abx + (p.z - a.z) * abz) / len2)) : 0;
+  return Math.hypot(p.x - (a.x + abx * t), p.z - (a.z + abz * t));
+}
+
+/** How far `p` (room space) is outside the room's outline (m): 0 inside. */
+function outsideBy(room: Room, p: Vec2): number {
+  if (pointInRoom(room, p)) return 0;
+  let best = Infinity;
+  const n = room.points.length;
+  for (let i = 0; i < n; i++) {
+    const a = readPoint(room.points[i]!);
+    const b = readPoint(room.points[(i + 1) % n]!);
+    best = Math.min(best, distanceToSegment(p, a, b));
+  }
+  return Number.isFinite(best) ? best : 0;
+}
+
+/**
+ * The line-up from two corners of `room` (indices into `room.points`) and two taps of them, in
+ * either order. Both orders fit the taps equally well (the distances are the same; one is the
+ * other turned half a turn about the middle of the taps), so where the phone was when tapping
+ * decides: `from` holds those spots (AR world floor points, e.g. the camera's position at each
+ * tap). The user stands in the room, so the order that leaves the phone inside the room, or
+ * nearer to it, wins. Without `from`, or when both orders leave the phone as much inside (an
+ * inner wall of an L-shaped room), the taps are taken in the order asked. Null when the corners
+ * are not in the room or the taps are unusable for `lineUpFromCorners`.
+ */
+export function lineUpFromRoomCorners(
+  room: Room,
+  corners: readonly [number, number],
+  tapped: readonly [FloorTap, FloorTap],
+  options: { floorY?: number; from?: readonly (Point | Vec2)[] } = {},
+): RoomCornersLineUp | null {
+  const a = room.points[corners[0]];
+  const b = room.points[corners[1]];
+  if (!a || !b) return null;
+  const asked = lineUpFromCorners([a, b], tapped, { floorY: options.floorY });
+  if (!asked) return null;
+  const from = (options.from ?? [])
+    .map(readPoint)
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.z));
+  if (!from.length) return { ...asked, swapped: false };
+  const other = lineUpFromCorners([b, a], tapped, { floorY: options.floorY });
+  if (!other) return { ...asked, swapped: false };
+  const outside = (l: LineUp) =>
+    from.reduce((sum, p) => sum + outsideBy(room, applyLineUpInverse(l, p)), 0);
+  return outside(other) + SWAP_MARGIN < outside(asked)
+    ? { ...other, swapped: true }
+    : { ...asked, swapped: false };
+}
+
 /** Corners to ask the user to tap: the two ends of the longest wall, as indices into `room.points`. */
 export function lineUpCorners(room: Room): [number, number] | null {
   let best: [number, number] | null = null;
@@ -174,6 +261,47 @@ export function lineUpCorners(room: Room): [number, number] | null {
     }
   }
   return best;
+}
+
+/**
+ * The line-up that puts room point `room.point` on AR world floor point `world.point`, with the
+ * room direction `room.direction` turned to the world direction `world.direction`: placing the
+ * room by hand (its middle where the user aims, a wall facing the way the phone looks). Null for
+ * a direction of zero length.
+ */
+export function lineUpAt(
+  room: { point: Point | Vec2; direction: Vec2 },
+  world: { point: Vec2; direction: Vec2 },
+  floorY: number,
+): LineUp | null {
+  const p = readPoint(room.point);
+  const values = [p.x, p.z, world.point.x, world.point.z, floorY];
+  if (!values.every(Number.isFinite)) return null;
+  if (!(Math.hypot(room.direction.x, room.direction.z) > 1e-9)) return null;
+  if (!(Math.hypot(world.direction.x, world.direction.z) > 1e-9)) return null;
+  const rotationY = normalizeDegrees(heading(world.direction) - heading(room.direction));
+  const turned = rotateY(p, rotationY);
+  return { rotationY, x: world.point.x - turned.x, y: floorY, z: world.point.z - turned.z };
+}
+
+/** The same line-up moved along the AR floor by `by` (m, world). */
+export function shiftLineUp(lineUp: LineUp, by: Vec2): LineUp {
+  return { ...lineUp, x: lineUp.x + by.x, z: lineUp.z + by.z };
+}
+
+/**
+ * The same line-up turned by `degrees` about the AR world floor point `pivot` (the sense of
+ * `rotationY`: positive turns counter-clockwise seen from above). Room points at the pivot stay
+ * put.
+ */
+export function turnLineUp(lineUp: LineUp, degrees: number, pivot: Vec2): LineUp {
+  const t = rotateY({ x: lineUp.x - pivot.x, z: lineUp.z - pivot.z }, degrees);
+  return {
+    rotationY: normalizeDegrees(lineUp.rotationY + degrees),
+    x: t.x + pivot.x,
+    y: lineUp.y,
+    z: t.z + pivot.z,
+  };
 }
 
 /** A point on the room's floor, in AR world coordinates. */

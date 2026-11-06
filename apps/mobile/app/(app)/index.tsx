@@ -1,9 +1,10 @@
 import { formatArea, roomArea, type UnitSystem } from '@youngvista/core';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Platform, Pressable, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  LuEllipsis,
   LuRefreshCw,
   LuScanLine,
   LuSettings,
@@ -13,6 +14,11 @@ import {
 } from 'react-icons/lu';
 import { ConnectionBanner } from '@/components/connection-banner';
 import { FloorPlan } from '@/components/floor-plan';
+import {
+  manageTarget,
+  RoomManageSheet,
+  type RoomManageTarget,
+} from '@/components/rooms/room-manage';
 import { UnitsToggle } from '@/components/units-toggle';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -23,6 +29,12 @@ import { Text } from '@/components/ui/text';
 import { useUser } from '@/lib/auth';
 import { emulatorHost } from '@/lib/firebase';
 import { formatDate } from '@/lib/format';
+import {
+  dismissRoomDeletion,
+  startRoomDeletion,
+  useRoomDeletions,
+  type RoomDeletion,
+} from '@/lib/room-delete';
 import { saveScannedRoom, useRooms, type RoomSummary } from '@/lib/rooms';
 import { sampleRoom } from '@/lib/sample-room';
 import { useUnits } from '@/lib/units';
@@ -34,6 +46,8 @@ export default function RoomsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const hasRooms = rooms.status === 'ready' && rooms.data.length > 0;
+  const deletions = useRoomDeletions();
+  const [manage, setManage] = useState<RoomManageTarget | null>(null);
 
   return (
     <View className="bg-background flex-1">
@@ -82,8 +96,18 @@ export default function RoomsScreen() {
             {emulatorHost ? <SampleRoomButton ownerId={user.uid} /> : null}
           </View>
         }
-        renderItem={({ item }) => <RoomCard room={item} units={units} />}
+        renderItem={({ item }) => (
+          <RoomCard
+            room={item}
+            units={units}
+            deletion={deletions.get(item.id) ?? null}
+            onOpen={() => router.push({ pathname: '/rooms/[id]', params: { id: item.id } })}
+            onManage={() => setManage(manageTarget(item, rooms.online))}
+            onRetryDelete={() => startRoomDeletion(user.uid, item)}
+          />
+        )}
       />
+      <RoomManageSheet target={manage} onClose={() => setManage(null)} />
       {hasRooms ? (
         <View
           className="absolute inset-x-0 bottom-0 flex-row gap-3 px-4"
@@ -136,28 +160,98 @@ function SampleRoomButton({ ownerId }: { ownerId: string }) {
   );
 }
 
-function RoomCard({ room, units }: { room: RoomSummary; units: UnitSystem }) {
+/**
+ * A room in the list: its plan, name, size and date. A tap opens it; the ⋯ button (or a long
+ * press) renames, edits or deletes it. While it is being deleted it says so and cannot be opened.
+ */
+function RoomCard({
+  room,
+  units,
+  deletion,
+  onOpen,
+  onManage,
+  onRetryDelete,
+}: {
+  room: RoomSummary;
+  units: UnitSystem;
+  deletion: RoomDeletion | null;
+  onOpen: () => void;
+  onManage: () => void;
+  onRetryDelete: () => void;
+}) {
   const area = room.room ? formatArea(roomArea(room.room), units) : 'No floor plan yet';
+  const deleting = deletion?.status === 'deleting';
+  const pieces = room.design.items.length;
+  const furniture =
+    pieces === 0 ? 'no furniture' : `${pieces} ${pieces === 1 ? 'piece' : 'pieces'}`;
   return (
-    <Link href={{ pathname: '/rooms/[id]', params: { id: room.id } }} asChild>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${room.name}, ${area}`}>
-        <Card className="gap-0 overflow-hidden py-0">
-          <View className="bg-muted/40 border-border aspect-[4/3] items-center justify-center border-b p-6">
-            {room.room ? (
-              <FloorPlan room={room.room} units={units} labels={false} layout="fill" />
-            ) : (
-              <Icon as={LuSquareDashed} size={40} className="text-muted-foreground" />
-            )}
-          </View>
-          <CardHeader className="py-4">
-            <CardTitle numberOfLines={1}>{room.name}</CardTitle>
-            <CardDescription>
-              {area} · {formatDate(room.updatedAt)}
-            </CardDescription>
-          </CardHeader>
-        </Card>
+    <Card
+      className={deleting ? 'gap-0 overflow-hidden py-0 opacity-60' : 'gap-0 overflow-hidden py-0'}
+    >
+      <Pressable
+        onPress={onOpen}
+        onLongPress={onManage}
+        disabled={deleting}
+        accessibilityRole="button"
+        accessibilityLabel={`${room.name}, ${area}, ${furniture}${deleting ? ', being deleted' : ''}`}
+        accessibilityHint="Opens the room. Press and hold to rename or delete it."
+        accessibilityActions={[{ name: 'manage', label: 'Rename, edit or delete' }]}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === 'manage') onManage();
+        }}
+        className="active:opacity-80"
+      >
+        <View className="bg-muted/40 border-border aspect-[4/3] items-center justify-center border-b p-6">
+          {room.room ? (
+            <FloorPlan room={room.room} units={units} labels={false} layout="fill" />
+          ) : (
+            <Icon as={LuSquareDashed} size={40} className="text-muted-foreground" />
+          )}
+        </View>
+        <CardHeader className="py-4">
+          <CardTitle numberOfLines={1}>{room.name}</CardTitle>
+          <CardDescription>
+            {area} · {furniture} · {formatDate(room.updatedAt)}
+          </CardDescription>
+        </CardHeader>
       </Pressable>
-    </Link>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="bg-background/85 absolute right-2 top-2 rounded-full"
+        onPress={onManage}
+        disabled={deleting}
+        accessibilityLabel={`Rename, edit or delete ${room.name}`}
+      >
+        <Icon as={LuEllipsis} size={20} />
+      </Button>
+      {deleting ? (
+        <View
+          className="absolute inset-x-0 top-0 aspect-[4/3] items-center justify-center gap-2"
+          pointerEvents="none"
+        >
+          <ActivityIndicator />
+          <Text className="text-sm font-medium">Deleting…</Text>
+        </View>
+      ) : null}
+      {deletion?.status === 'failed' ? (
+        <View className="border-border gap-2 border-t px-6 py-3">
+          <View className="flex-row items-center gap-2">
+            <Icon as={LuTriangleAlert} size={14} className="text-destructive" />
+            <Text className="text-destructive flex-1 text-xs">{deletion.message}</Text>
+          </View>
+          <View className="flex-row gap-2">
+            <Button size="sm" variant="outline" onPress={onRetryDelete}>
+              <Icon as={LuRefreshCw} size={14} />
+              <Text>Delete again</Text>
+            </Button>
+            <Button size="sm" variant="ghost" onPress={() => dismissRoomDeletion(room.id)}>
+              <Text>Keep it</Text>
+            </Button>
+          </View>
+        </View>
+      ) : null}
+    </Card>
   );
 }
 

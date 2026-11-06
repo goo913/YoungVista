@@ -9,6 +9,7 @@ import {
   listFromCache,
   listToCache,
   pendingFromText,
+  pendingIsEmpty,
   pendingToText,
   summaryFromCache,
   summaryToCache,
@@ -66,6 +67,17 @@ export async function removeRoomCopy(uid: string, roomId: string): Promise<void>
   }
 }
 
+/** Takes a deleted room out of the phone's copy of the rooms list. */
+export async function removeFromRoomsCopy(uid: string, roomId: string): Promise<void> {
+  const rooms = await readRoomsCopy(uid);
+  if (rooms.some((r) => r.id === roomId)) {
+    await writeRoomsCopy(
+      uid,
+      rooms.filter((r) => r.id !== roomId),
+    );
+  }
+}
+
 // Writes to one room's pending edits run one after another, so a newer edit is never
 // overwritten by an older one finishing late.
 const chains = new Map<string, Promise<unknown>>();
@@ -96,7 +108,7 @@ export async function readPending(uid: string, roomId: string): Promise<PendingE
 
 async function storePending(uid: string, roomId: string, pending: PendingEdits): Promise<void> {
   const key = pendingKey(uid, roomId);
-  if (!pending.design && !pending.room) await AsyncStorage.removeItem(key);
+  if (pendingIsEmpty(pending)) await AsyncStorage.removeItem(key);
   else await AsyncStorage.setItem(key, pendingToText(pending));
   for (const l of listeners) l(roomId);
 }
@@ -138,9 +150,22 @@ export function clearPending(uid: string, roomId: string, saved: PendingEdits): 
       ) {
         delete next.room;
       }
+      if (saved.name !== undefined && current.name === saved.name) delete next.name;
       await storePending(uid, roomId, next);
     } catch {
       // Left in place: it is sent again on the next start, which does no harm.
+    }
+  });
+}
+
+/** Forgets every edit of a room that is being deleted. */
+export function forgetPending(uid: string, roomId: string): Promise<void> {
+  const key = pendingKey(uid, roomId);
+  return serial(key, async () => {
+    try {
+      await storePending(uid, roomId, {});
+    } catch {
+      // Left in place: the next start finds the room gone and forgets it then.
     }
   });
 }

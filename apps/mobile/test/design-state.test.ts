@@ -5,6 +5,7 @@ import {
   type ProductLookup,
 } from '@youngvista/core';
 import { describe, expect, it } from 'vitest';
+import { noticeText, noticeTone } from '@/furnish/describe';
 import {
   displayedItems,
   initialDesignState,
@@ -299,5 +300,29 @@ describe('selection and checks', () => {
     });
     expect(s.items).toHaveLength(1);
     expect(s.version).toBe(0);
+    expect(s.notice).toBeNull();
+  });
+
+  it('says when the design was changed elsewhere, keeping the selection if the piece is there', () => {
+    const start = run(initialDesignState([item('a', 'chair', 1, 1)]), { type: 'select', id: 'a' });
+    const s = run(start, {
+      type: 'load',
+      items: [item('a', 'chair', 2, 2), item('b', 'sofa', 3, 1)],
+      elsewhere: true,
+    });
+    expect(s.notice).toEqual({ kind: 'updated' });
+    expect(s.selectedId).toBe('a');
+    expect(s.version).toBe(0);
+    expect(noticeTone(s.notice!)).toBe('info');
+    expect(
+      noticeText(
+        s.notice!,
+        () => 'piece',
+        () => 'piece',
+      ),
+    ).toMatch(/website/);
+    const gone = run(start, { type: 'load', items: [], elsewhere: true });
+    expect(gone.selectedId).toBeNull();
+    expect(noticeTone({ kind: 'no-space', productId: 'sofa' })).toBe('error');
   });
 });

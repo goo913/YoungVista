@@ -65,5 +65,11 @@ export function noticeText(
       return `There is no free space for the ${inSentence(productName(notice.productId))}. Move or remove something first.`;
     case 'removed':
       return `Removed the ${inSentence(productName(notice.item.productId))}.`;
+    case 'updated':
+      return 'Furniture updated: it was changed on the website or another phone.';
   }
 }
+
+/** A notice about something the user could not do is an error; the others are information. */
+export const noticeTone = (notice: DesignNotice): 'info' | 'error' =>
+  notice.kind === 'refused' || notice.kind === 'no-space' ? 'error' : 'info';

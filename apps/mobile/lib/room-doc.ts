@@ -76,6 +76,19 @@ export function designUpdate(design: Design): { design: Design; updatedAt: Field
   return { design: designToFirestore(design), updatedAt: serverTimestamp() };
 }
 
+/** The longest room name (characters). */
+export const MAX_ROOM_NAME = 80;
+
+/** A name as typed, ready to save: trimmed, inner runs of spaces made one, at most 80 long. */
+export function cleanRoomName(name: string): string {
+  return name.replace(/\s+/g, ' ').trim().slice(0, MAX_ROOM_NAME).trim();
+}
+
+/** The fields renaming a room writes. */
+export function nameUpdate(name: string): { name: string; updatedAt: FieldValue } {
+  return { name: cleanRoomName(name) || 'Untitled room', updatedAt: serverTimestamp() };
+}
+
 /** The fields an autosave of the room editor writes. */
 export function roomUpdate(room: Room): {
   room: ReturnType<typeof roomToFirestore>;
@@ -154,31 +167,46 @@ export function listFromCache(text: string | null | undefined): RoomSummary[] {
 }
 
 /**
- * Edits not on the server yet, kept on the phone until they are: the newest design and room
- * shape. If the app is closed before the connection comes back, they are sent on the next start.
+ * Edits not on the server yet, kept on the phone until they are: the newest design, room shape
+ * and name. If the app is closed before the connection comes back, they are sent on the next
+ * start.
  */
 export interface PendingEdits {
   design?: Design;
   room?: Room;
+  name?: string;
 }
+
+/** True when nothing is waiting. */
+export const pendingIsEmpty = (pending: PendingEdits): boolean =>
+  !pending.design && !pending.room && pending.name === undefined;
 
 export function pendingToText(pending: PendingEdits): string {
   return JSON.stringify({
     v: 1,
     ...(pending.design ? { design: designToFirestore(pending.design) } : {}),
     ...(pending.room ? { room: roomToFirestore(pending.room) } : {}),
+    ...(pending.name !== undefined ? { name: pending.name } : {}),
   });
 }
 
 export function pendingFromText(text: string | null | undefined): PendingEdits {
   if (!text) return {};
   try {
-    const data = JSON.parse(text) as { v?: number; design?: unknown; room?: unknown };
+    const data = JSON.parse(text) as {
+      v?: number;
+      design?: unknown;
+      room?: unknown;
+      name?: unknown;
+    };
     if (data.v !== 1) return {};
     const out: PendingEdits = {};
     if (data.design !== undefined) out.design = designFromFirestore(data.design);
     const room = data.room !== undefined ? roomFromFirestore(data.room) : null;
     if (room) out.room = room;
+    if (typeof data.name === 'string' && cleanRoomName(data.name)) {
+      out.name = cleanRoomName(data.name);
+    }
     return out;
   } catch {
     return {};
@@ -187,11 +215,12 @@ export function pendingFromText(text: string | null | undefined): PendingEdits {
 
 /** The room with edits that are not on the server yet laid over it. */
 export function withPending(summary: RoomSummary, pending: PendingEdits): RoomSummary {
-  if (!pending.design && !pending.room) return summary;
+  if (pendingIsEmpty(pending)) return summary;
   return {
     ...summary,
     design: pending.design ?? summary.design,
     room: pending.room ?? summary.room,
+    name: pending.name ?? summary.name,
   };
 }
 
@@ -205,6 +234,22 @@ export function roomsErrorMessage(error: unknown): string {
       return 'The rooms list is still being set up. Try again in a few minutes.';
     default:
       return 'Your rooms could not be loaded. Try again.';
+  }
+}
+
+/** Why deleting a room or a picture did not finish, and what to do. */
+export function deleteErrorMessage(error: unknown, what: 'room' | 'picture'): string {
+  switch (errorCode(error)) {
+    case 'unavailable':
+    case 'deadline-exceeded':
+    case 'storage/retry-limit-exceeded':
+    case 'network-request-failed':
+      return `The connection dropped before the ${what} was deleted. Check your connection and try again.`;
+    case 'permission-denied':
+    case 'storage/unauthorized':
+      return `You are not allowed to delete this ${what}. Try signing out and in again.`;
+    default:
+      return `The ${what} could not be deleted. Try again.`;
   }
 }
 

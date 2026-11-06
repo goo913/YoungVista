@@ -39,15 +39,20 @@ export default function RoomArScreen() {
   };
 
   const problem =
-    room.status === 'missing'
-      ? { title: 'Room not found', text: 'This room does not exist or belongs to another account.' }
-      : room.status === 'error'
-        ? { title: 'Could not load', text: room.message }
-        : room.status === 'ready' && !room.data.room
-          ? { title: 'No floor plan', text: 'This room has no floor plan to show yet.' }
-          : catalog.status === 'error'
-            ? { title: 'No furniture list', text: catalog.message }
-            : null;
+    room.status === 'missing' && room.deleted
+      ? { title: 'This room was deleted', text: 'It is no longer on this phone or the website.' }
+      : room.status === 'missing'
+        ? {
+            title: 'Room not found',
+            text: 'This room does not exist or belongs to another account.',
+          }
+        : room.status === 'error'
+          ? { title: 'Could not load', text: room.message }
+          : room.status === 'ready' && !room.data.room
+            ? { title: 'No floor plan', text: 'This room has no floor plan to show yet.' }
+            : catalog.status === 'error'
+              ? { title: 'No furniture list', text: catalog.message }
+              : null;
 
   return (
     <View className="flex-1 bg-black">
@@ -68,6 +73,8 @@ export default function RoomArScreen() {
               controller={controller}
               scene={scene}
               view={view}
+              server={room.server}
+              pendingDesign={room.pendingDesign}
               onClose={close}
             />
           ) : (
@@ -84,8 +91,11 @@ export default function RoomArScreen() {
                         <Text>Try again</Text>
                       </Button>
                     ) : null}
-                    <Button variant="outline" onPress={close}>
-                      <Text>Back</Text>
+                    <Button
+                      variant="outline"
+                      onPress={room.status === 'missing' ? () => router.dismissTo('/') : close}
+                    >
+                      <Text>{room.status === 'missing' ? 'Back to your rooms' : 'Back'}</Text>
                     </Button>
                   </CardContent>
                 </Card>

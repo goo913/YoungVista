@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { AppState, View } from 'react-native';
+import { ToastHost } from '@/components/toast-host';
 import { useAuth } from '@/lib/auth';
 import { pictureUploads } from '@/lib/pictures';
 import { sendLeftoverEdits } from '@/lib/rooms';
@@ -33,31 +34,35 @@ export default function AppRoutes() {
   // screen runs without a user.
   if (!user) return null;
   return (
-    <Stack>
-      <Stack.Screen name="index" options={{ title: 'Your rooms' }} />
-      <Stack.Screen name="rooms/[id]/index" options={{ title: 'Room' }} />
-      <Stack.Screen
-        name="rooms/[id]/furnish"
-        options={{ title: 'Furnish', gestureEnabled: false }}
-      />
-      <Stack.Screen
-        name="rooms/[id]/edit"
-        options={{ title: 'Edit room', gestureEnabled: false }}
-      />
-      <Stack.Screen name="settings" options={{ title: 'Settings' }} />
-      <Stack.Screen name="credits" options={{ title: '3D model credits' }} />
-      <Stack.Screen
-        name="scan"
-        options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
-      />
-      <Stack.Screen
-        name="rooms/[id]/ar"
-        options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
-      />
-      <Stack.Screen
-        name="place"
-        options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
-      />
-    </Stack>
+    // Short confirmations (lib/toast.ts) show over every screen of the stack.
+    <View style={{ flex: 1 }}>
+      <Stack>
+        <Stack.Screen name="index" options={{ title: 'Your rooms' }} />
+        <Stack.Screen name="rooms/[id]/index" options={{ title: 'Room' }} />
+        <Stack.Screen
+          name="rooms/[id]/furnish"
+          options={{ title: 'Furnish', gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="rooms/[id]/edit"
+          options={{ title: 'Edit room', gestureEnabled: false }}
+        />
+        <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+        <Stack.Screen name="credits" options={{ title: '3D model credits' }} />
+        <Stack.Screen
+          name="scan"
+          options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="rooms/[id]/ar"
+          options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="place"
+          options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }}
+        />
+      </Stack>
+      <ToastHost />
+    </View>
   );
 }

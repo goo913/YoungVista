@@ -88,6 +88,8 @@ export function ArAfterScan({
         scene={scene}
         view={view}
         fromScan={{ offset: scanLineUpOffset(room.data.room, saved.scaleFactor) }}
+        server={room.server}
+        pendingDesign={room.pendingDesign}
         onClose={onClose}
       />
     );

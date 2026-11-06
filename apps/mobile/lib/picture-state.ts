@@ -381,6 +381,38 @@ export function shotText(photos: PhotosState, upload: ShotUpload, incomplete: bo
 export const shotSettled = (photos: PhotosState, upload: ShotUpload): boolean =>
   photos !== 'saving' && upload !== 'uploading';
 
+/** One line of the "Picture saved" card: done (a tick), still going (a spinner), or a problem. */
+export interface ShotRow {
+  tone: 'done' | 'busy' | 'warn';
+  text: string;
+}
+
+const PHOTOS_ROW: Record<PhotosState, ShotRow> = {
+  saving: { tone: 'busy', text: 'Saving to Photos…' },
+  saved: { tone: 'done', text: 'Saved to Photos' },
+  denied: { tone: 'warn', text: 'Not in Photos: allow YoungVista to add photos in Settings' },
+  failed: { tone: 'warn', text: 'Could not save it to Photos' },
+};
+
+const ROOM_ROW: Record<ShotUpload, ShotRow> = {
+  uploading: { tone: 'busy', text: 'Saved in this room’s pictures. Uploading to the website…' },
+  waiting: {
+    tone: 'busy',
+    text: 'Saved in this room’s pictures. It goes to the website when the connection is back.',
+  },
+  uploaded: { tone: 'done', text: 'Saved in this room’s pictures and on the website' },
+  failed: { tone: 'warn', text: 'Kept on this phone, but it could not be uploaded' },
+};
+
+/**
+ * Where the new picture went, one line each: Photos, and this room (its pictures on the room
+ * page, and the website once uploaded).
+ */
+export const shotRows = (photos: PhotosState, upload: ShotUpload): [ShotRow, ShotRow] => [
+  PHOTOS_ROW[photos],
+  ROOM_ROW[upload],
+];
+
 /**
  * Where an upload is: `text` fits on the picture's tile, `detail` says it in a sentence (the
  * picture viewer, and screen readers).

@@ -44,6 +44,11 @@ const roomScene = { scene: RoomScene } as unknown as SceneEntry;
 
 export interface Room3DProps extends View3DInput {
   room: Room;
+  /**
+   * False: a picture of the room that fingers do not move (the room page's preview, inside a
+   * scrolling page); "Top view" and "Corner view" still work. Default true.
+   */
+  interactive?: boolean;
 }
 
 export interface Room3DHandle {
@@ -63,7 +68,7 @@ const loadingCount = (s: SceneState) =>
   s.items.filter((it) => it.modelUrl && !s.ready.has(it.id) && !s.failed.has(it.id)).length;
 
 export const Room3D = forwardRef<Room3DHandle, Room3DProps>(function Room3D(props, ref) {
-  const { room, items } = props;
+  const { room, items, interactive = true } = props;
   const meshes = useMemo(() => buildRoomMeshes(room), [room]);
   const [store] = useState(() =>
     createStore<SceneState>({
@@ -155,9 +160,11 @@ export const Room3D = forwardRef<Room3DHandle, Room3DProps>(function Room3D(prop
     <View style={styles.fill} onLayout={onLayout}>
       {scene}
       <FailedLabels store={store} viewport={viewport} />
-      <GestureDetector gesture={controls.gesture}>
-        <View style={StyleSheet.absoluteFill} collapsable={false} />
-      </GestureDetector>
+      {interactive ? (
+        <GestureDetector gesture={controls.gesture}>
+          <View style={StyleSheet.absoluteFill} collapsable={false} />
+        </GestureDetector>
+      ) : null}
     </View>
   );
 });

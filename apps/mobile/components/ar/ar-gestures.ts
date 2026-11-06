@@ -1,18 +1,29 @@
 /**
  * The AR view's finger gestures, built once: a tap, a one-finger drag and a two-finger turn,
- * handed to `ArTouch` (ar/touch.ts), which turns them into design actions in room space.
+ * handed to `ArTouch` (ar/touch.ts), which turns them into design actions in room space, or to
+ * `RoomMover` (ar/room-mover.ts), which moves the whole room while "Move the room" is on.
  */
 import { Gesture, type ComposedGesture } from 'react-native-gesture-handler';
-import type { ArTouch } from '@/ar/touch';
 
 type Point = { x: number; y: number };
 
+/** What the gestures drive: ar/touch.ts's `ArTouch` or ar/room-mover.ts's `RoomMover`. */
+export interface ArTouchTarget {
+  panStart(x: number, y: number): void;
+  panMove(x: number, y: number): void;
+  panEnd(): void;
+  turnStart(): void;
+  turnMove(degrees: number): void;
+  turnEnd(): void;
+  tap(x: number, y: number): Promise<void>;
+}
+
 export class ArGestures {
   readonly gesture: ComposedGesture;
-  private readonly touch: ArTouch;
+  private readonly touch: ArTouchTarget;
   private begin: Point = { x: 0, y: 0 };
 
-  constructor(touch: ArTouch) {
+  constructor(touch: ArTouchTarget) {
     this.touch = touch;
     // The handlers are passed by reference: an inline arrow in a gesture chain is turned into a
     // worklet by the Reanimated Babel plugin, and then `this` is not this object.

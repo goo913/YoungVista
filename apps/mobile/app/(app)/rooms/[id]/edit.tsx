@@ -68,17 +68,26 @@ export default function EditRoomScreen() {
   return (
     <View className="bg-background flex-1 gap-4 p-4">
       <Alert variant="destructive" icon={LuTriangleAlert}>
-        <AlertTitle>Cannot edit this room</AlertTitle>
+        <AlertTitle>
+          {room.status === 'missing' && room.deleted
+            ? 'This room was deleted'
+            : 'Cannot edit this room'}
+        </AlertTitle>
         <AlertDescription>
           {room.status === 'error'
             ? room.message
-            : room.status === 'missing'
-              ? 'This room does not exist or belongs to another account.'
-              : 'This room has no floor plan yet.'}
+            : room.status === 'missing' && room.deleted
+              ? 'It is no longer on this phone or the website.'
+              : room.status === 'missing'
+                ? 'This room does not exist or belongs to another account.'
+                : 'This room has no floor plan yet.'}
         </AlertDescription>
       </Alert>
-      <Button variant="outline" onPress={() => router.back()}>
-        <Text>Back</Text>
+      <Button
+        variant="outline"
+        onPress={() => (room.status === 'missing' ? router.dismissTo('/') : router.back())}
+      >
+        <Text>{room.status === 'missing' ? 'Back to your rooms' : 'Back'}</Text>
       </Button>
     </View>
   );

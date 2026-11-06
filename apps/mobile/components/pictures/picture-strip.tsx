@@ -1,10 +1,11 @@
 /**
  * The room's final pictures on the room page: a row of thumbnails, newest first. Pictures still
  * on their way from this phone say how their upload is going ("Uploading 40%", "Waiting for
- * connection"); a tap opens one. The website's gallery shows the same pictures once uploaded.
+ * connection"); a tap opens one, and pressing and holding one deletes it (after asking), as does
+ * the viewer's Delete. The website's gallery shows the same pictures once uploaded.
  */
 import { useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, View } from 'react-native';
 import {
   LuCamera,
   LuCloudOff,
@@ -20,6 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { useUser } from '@/lib/auth';
 import { formatDate } from '@/lib/format';
 import { stripPictures, uploadView, type StripPicture, type UploadView } from '@/lib/picture-state';
 import {
@@ -31,6 +33,7 @@ import {
   useUploadWhenOnline,
   type UploadsSnapshot,
 } from '@/lib/pictures';
+import { confirmDeletePicture } from './delete-picture';
 import { PictureViewer } from './picture-viewer';
 
 const STATUS_ICON: Record<UploadView['kind'], IconType> = {
@@ -61,15 +64,36 @@ export function PictureStrip({
   /** Opens the 3D view, where pictures are taken. */
   onTakePicture: () => void;
 }) {
+  const user = useUser();
   const remote = useRoomPictures(roomId);
   const uploads = usePictureUploads();
   const [openId, setOpenId] = useState<string | null>(null);
+  // Pictures being deleted: their tiles say so until they are gone.
+  const [deleting, setDeleting] = useState<ReadonlySet<string>>(new Set());
   const uploaded = remote.status === 'ready' ? remote.pictures : null;
   const pictures = useMemo(
     () => stripPictures(roomId, uploads.queue, uploaded ?? [], uploadedFile),
     [roomId, uploads.queue, uploaded],
   );
   const open = pictures.find((p) => p.id === openId) ?? null;
+
+  const askDelete = (picture: StripPicture) =>
+    confirmDeletePicture({
+      uid: user.uid,
+      roomId,
+      picture,
+      online,
+      onStart: () => {
+        setOpenId(null);
+        setDeleting((s) => new Set(s).add(picture.id));
+      },
+      onEnd: () =>
+        setDeleting((s) => {
+          const next = new Set(s);
+          next.delete(picture.id);
+          return next;
+        }),
+    });
 
   useUploadWhenOnline(online);
 
@@ -106,11 +130,11 @@ export function PictureStrip({
         <Text className="text-muted-foreground text-center text-sm">
           {fromCache
             ? 'No pictures on this phone. Pictures taken elsewhere show when the connection is back.'
-            : 'No pictures yet. In the 3D view, choose an angle and tap Take picture.'}
+            : 'No pictures yet. Open the 3D view, choose an angle and tap Take picture.'}
         </Text>
         <Button variant="outline" onPress={onTakePicture}>
           <Icon as={LuCamera} size={16} />
-          <Text>Take a picture</Text>
+          <Text>Open the 3D view</Text>
         </Button>
       </View>
     );
@@ -128,7 +152,9 @@ export function PictureStrip({
             key={p.id}
             picture={p}
             status={statusOf(p, uploads, online)}
+            deleting={deleting.has(p.id)}
             onPress={() => setOpenId(p.id)}
+            onDelete={() => askDelete(p)}
           />
         ))}
       </ScrollView>
@@ -140,7 +166,9 @@ export function PictureStrip({
       <CardHeader>
         <CardTitle>Pictures</CardTitle>
         <CardDescription>
-          Pictures of the room from the 3D view. They are also on the website.
+          {pictures.length > 0
+            ? 'Taken in the 3D view: in Photos, here and on the website. Tap one to see it; press and hold to delete it.'
+            : 'Pictures you take in the 3D view are saved to Photos and here, and show on the website.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="gap-3">
@@ -165,6 +193,7 @@ export function PictureStrip({
         picture={open}
         status={open ? statusOf(open, uploads, online) : null}
         onClose={() => setOpenId(null)}
+        onDelete={askDelete}
       />
     </Card>
   );
@@ -173,21 +202,31 @@ export function PictureStrip({
 function Tile({
   picture,
   status,
+  deleting,
   onPress,
+  onDelete,
 }: {
   picture: StripPicture;
   status: UploadView | null;
+  deleting: boolean;
   onPress: () => void;
+  onDelete: () => void;
 }) {
   const source = usePictureSource(picture);
   const when = formatDate(picture.time === Number.MAX_SAFE_INTEGER ? null : new Date(picture.time));
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onDelete}
+      disabled={deleting}
       accessibilityRole="button"
-      accessibilityLabel={`Picture from ${when}${status ? `. ${status.detail}` : ''}`}
-      accessibilityHint="Opens the picture."
-      className="active:opacity-80"
+      accessibilityLabel={`Picture from ${when}${deleting ? ', being deleted' : status ? `. ${status.detail}` : ''}`}
+      accessibilityHint="Opens the picture. Press and hold to delete it."
+      accessibilityActions={[{ name: 'delete', label: 'Delete picture' }]}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'delete') onDelete();
+      }}
+      className={deleting ? 'opacity-50' : 'active:opacity-80'}
     >
       <View className="bg-muted h-36 w-28 items-center justify-center overflow-hidden rounded-lg">
         {source.uri ? (
@@ -203,7 +242,13 @@ function Tile({
         ) : (
           <Icon as={LuImageOff} size={22} className="text-muted-foreground" />
         )}
-        {status ? (
+        {deleting ? (
+          <View className="absolute inset-0 items-center justify-center gap-1 bg-black/40">
+            <ActivityIndicator color="white" />
+            <Text className="text-[10px] font-medium text-white">Deleting…</Text>
+          </View>
+        ) : null}
+        {status && !deleting ? (
           <View className="absolute inset-x-1 bottom-1 flex-row items-center gap-1 rounded-md bg-black/70 px-1.5 py-1">
             <Icon as={STATUS_ICON[status.kind]} size={11} className="text-white" />
             <Text className="flex-1 text-[10px] font-medium text-white" numberOfLines={1}>

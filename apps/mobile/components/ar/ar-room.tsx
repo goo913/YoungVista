@@ -1,18 +1,43 @@
 /**
  * "See it in your room": a saved room in the camera view, at true size, lined up with the real
- * one. The user finds the floor, then aims the dot at two corners shown on a small plan and taps
- * "Corner here" at each; right after a scan, in the same AR session, the room is lined up
- * already. Then the furniture stands at its saved spots with soft shadows; it can be moved with a
- * finger, turned with two fingers or the 15° buttons, and added where the dot is. Every change is
- * saved to the room's design (the same autosave as the furniture screen). The ghost walls show
- * how well the room lines up; "Line up again" fixes it when things drift.
+ * one. It never blocks: the furniture always shows at its saved spots in the room.
+ *
+ * The user finds the floor, then either aims the dot at the two ends of one wall (shown on a
+ * small plan: corner 1 is the left end, seen facing the wall) and taps "Corner here" at each, or
+ * taps "Place by hand" to put the room where the dot is. Any two taps half a metre apart or more
+ * are taken, in either order; how the taps differ from the plan is said, never refused. Right
+ * after a scan, in the same AR session, the room is lined up already. "Move the room" then lets
+ * one finger drag the whole room along the floor and two fingers turn it (or "Turn 90°").
+ *
+ * The furniture can be moved with a finger, turned with two fingers or the 15° buttons, and added
+ * where the dot is. Every change is saved to the room's design (the same autosave as the
+ * furniture screen), and changes made elsewhere show up here (furnish/design-follow.ts). The
+ * ghost walls show how well the room lines up; "Line up again" fixes it when things drift.
  */
-import type { Design, LineUp, Room } from '@youngvista/core';
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { StyleSheet, View } from 'react-native';
+import {
+  applyLineUp,
+  formatLength,
+  hitLevelPlane,
+  roomCenter,
+  turnLineUp,
+  type Design,
+  type LineUp,
+  type Room,
+  type Vec2,
+} from '@youngvista/core';
+import { useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { PixelRatio, StyleSheet, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LuBox, LuCrosshair, LuLocateFixed, LuUndo2 } from 'react-icons/lu';
+import {
+  LuBox,
+  LuCrosshair,
+  LuHand,
+  LuLocateFixed,
+  LuMove,
+  LuRotateCw,
+  LuUndo2,
+} from 'react-icons/lu';
 import type { ArController } from '@/ar/controller';
 import { cornerPrompt } from '@/ar/corner-prompts';
 import {
@@ -24,40 +49,58 @@ import {
   lineUpAgain,
   lineUpFromScan,
   lineUpMessage,
+  moveRoom,
+  otherCorners,
+  placeByHand,
   qualityMessage,
   retryLineUp,
+  spanFromFirst,
   tapCorner,
   tappedPoints,
   TAP_ERRORS,
   undoTap,
-  otherCorners,
   type LineUpState,
 } from '@/ar/lineup-state';
-import { sameLineUp } from '@/ar/pose';
+import { aheadOnFloor, MAX_FLOOR_REACH, sameLineUp, worldToRoom } from '@/ar/pose';
+import { RoomMover, type RoomMoverInput } from '@/ar/room-mover';
+import { rayCaster } from '@/ar/touch';
 import { FurniturePicker } from '@/components/furnish/furniture-picker';
 import { SaveIndicator } from '@/components/save-indicator';
 import { RoundButton } from '@/components/scan/scan-hud';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { noticeText } from '@/furnish/describe';
+import { noticeText, noticeTone } from '@/furnish/describe';
+import { useDesignFollower, useFollowServerDesign } from '@/furnish/design-follow';
 import { useDesign } from '@/furnish/use-design';
 import { models } from '@/lib/catalog';
 import { modelUrl, type CatalogIndex } from '@/lib/catalog-data';
 import type { PendingEdits, RoomSummary } from '@/lib/room-doc';
-import { saveDesign } from '@/lib/rooms';
+import { saveDesign, type ServerDesign } from '@/lib/rooms';
 import { useStore, type Store } from '@/lib/store';
 import { useUnits } from '@/lib/units';
 import { useAutosave } from '@/lib/use-autosave';
 import type { Message } from '@/scan/coaching';
 import { ArFurnitureCard } from './ar-furniture-card';
-import { aimLabel, ArBanner, ArReticle, ArTopBar, floorMessage, type BannerAction } from './ar-hud';
+import { ArGestures } from './ar-gestures';
+import {
+  aimLabel,
+  ArBanner,
+  ArCard,
+  ArReticle,
+  ArTopBar,
+  floorMessage,
+  type BannerAction,
+} from './ar-hud';
 import type { ArSceneState } from './ar-scene';
 import type { ArViewHandle } from './ar-view';
 import { LineUpPlan } from './lineup-plan';
 import { useArFurniture } from './use-ar-furniture';
 
 const asPending = (design: Design): PendingEdits => ({ design });
+
+/** Still no floor after this long: offer the 3D view instead (ms). */
+const SLOW_FLOOR_MS = 15_000;
 
 type Note = {
   tone: 'info' | 'error' | 'success';
@@ -84,6 +127,10 @@ export interface ArRoomProps {
   view: React.RefObject<ArViewHandle | null>;
   /** Right after a scan in the same AR session: lined up already, at most this far off (m). */
   fromScan?: { offset: number } | null;
+  /** The design as the server has it (lib/rooms.ts), to follow changes made elsewhere. */
+  server?: ServerDesign | null;
+  /** A design edit made on this phone is not on the server yet. */
+  pendingDesign?: boolean;
   onClose: () => void;
 }
 
@@ -96,6 +143,8 @@ export function ArRoom({
   scene,
   view,
   fromScan = null,
+  server = null,
+  pendingDesign = false,
   onClose,
 }: ArRoomProps) {
   const insets = useSafeAreaInsets();
@@ -106,11 +155,21 @@ export function ArRoom({
   );
   const design = useDesign(room, catalog, summary.design);
   const { dispatch } = design;
+
+  // Changes made elsewhere (the website, another phone) show up here when the user is idle.
+  const follower = useDesignFollower(summary.design, server);
   const { status, change } = useAutosave({
     roomId: summary.id,
     online,
     write: saveDesign,
     asPending,
+    onSaved: follower.saved,
+  });
+  useFollowServerDesign(follower, {
+    server,
+    items: design.state.items,
+    busy: design.state.gesture !== null || pendingDesign || status !== 'saved',
+    onAdopt: (d) => dispatch({ type: 'load', items: d.items, elsewhere: true }),
   });
   // Save after every change the user makes (not after loading).
   useEffect(() => {
@@ -131,6 +190,8 @@ export function ArRoom({
   const [lining, setLining] = useState<LineUpState | null>(() =>
     fromScan ? lineUpFromScan(room, fromScan.offset) : createLineUp(room),
   );
+  // "Move the room": fingers move the whole room. `before` is the line-up to go back to (Undo).
+  const [moving, setMoving] = useState<{ before: LineUpState } | null>(null);
   const floorY = derived.floorY;
   const done = lining?.phase.kind === 'done';
   const lineUp = useSteadyLineUp(
@@ -143,7 +204,7 @@ export function ArRoom({
     scene,
     view,
     lineUp,
-    active: done && lineUp !== null,
+    active: done && lineUp !== null && moving === null,
   });
   const [ghost, setGhost] = useState(true);
   const taps = useMemo(() => (lining ? tappedPoints(lining, floorY) : []), [lining, floorY]);
@@ -155,11 +216,55 @@ export function ArRoom({
       // Lining up again keeps the last line-up in the scene, hidden.
       lineUp: lineUp ?? s.lineUp,
       showRoom: done && lineUp !== null,
-      ghost,
+      // The ghost walls are what the room is lined up by: always shown while moving it.
+      ghost: ghost || moving !== null,
       taps,
-      showAim: !done || selectedId === null,
+      showAim: !done || selectedId === null || moving !== null,
     }));
-  }, [scene, room, lineUp, done, ghost, taps, selectedId]);
+  }, [scene, room, lineUp, done, ghost, taps, selectedId, moving]);
+
+  /* Moving the whole room by hand. */
+  const pivot = (): Vec2 | null => {
+    const aim = controller.getSnapshot().derived.aim;
+    if (aim.ok) return aim.point;
+    return lineUp ? applyLineUp(lineUp, roomCenter(room)) : null;
+  };
+  const [mover] = useState(
+    () =>
+      new RoomMover(
+        rayCaster(() => view.current?.unproject ?? null, PixelRatio.get()),
+        idleMover(),
+      ),
+  );
+  const [moverGestures] = useState(() => new ArGestures(mover));
+  useLayoutEffect(() => {
+    mover.update({
+      lineUp: moving ? lineUp : null,
+      floorY,
+      pivot,
+      onMove: (next) => setLining((s) => (s ? moveRoom(s, next) : s)),
+      onEnd: () => {},
+    });
+  });
+  /** "Move the room": from now on fingers move the whole room; Undo goes back to `from`. */
+  const startMoving = (from: LineUpState | null = lining) => {
+    if (!from || from.phase.kind !== 'done') return;
+    dispatch({ type: 'select', id: null });
+    setMoving({ before: from });
+    setNote(null);
+  };
+  const turnQuarter = () => {
+    const p = pivot();
+    if (!lineUp || !p) return;
+    // A quarter turn clockwise, seen from above.
+    setLining((s) => (s ? moveRoom(s, turnLineUp(lineUp, -90, p)) : s));
+  };
+  const undoMove = () => {
+    if (!moving) return;
+    setLining(moving.before);
+    if (moving.before.phase.kind !== 'done') setMoving(null);
+    else setMoving({ before: moving.before });
+  };
 
   /* Messages. */
   const [note, setNote] = useState<Note>(() => {
@@ -171,16 +276,28 @@ export function ArRoom({
   });
   useEffect(() => {
     if (!note) return;
-    const t = setTimeout(() => setNote(null), note.tone === 'error' ? 6000 : 7000);
+    const t = setTimeout(() => setNote(null), note.tone === 'error' ? 6000 : 10000);
     return () => clearTimeout(t);
   }, [note]);
   // Tracking lost for a while and back: the phone may have moved its idea of the room.
   const [driftSeen, setDriftSeen] = useState(tracking.recoveries);
   const drifted = done && tracking.recoveries > driftSeen;
   const failedModels = useStore(scene, (s) => s.failed.size);
+  // No floor for a long while (dim light, a plain floor): offer the room in 3D instead.
+  const noFloor = floorY === null;
+  const [slowFloor, setSlowFloor] = useState(false);
+  useEffect(() => {
+    if (!noFloor) return;
+    const t = setTimeout(() => setSlowFloor(true), SLOW_FLOOR_MS);
+    return () => {
+      clearTimeout(t);
+      setSlowFloor(false);
+    };
+  }, [noFloor]);
 
   const again = () => {
     dispatch({ type: 'select', id: null });
+    setMoving(null);
     setLining((s) => (s ? lineUpAgain(s) : s));
     setNote(null);
     setDriftSeen(tracking.recoveries);
@@ -211,7 +328,7 @@ export function ArRoom({
           tone: 'success',
           title: q.title,
           detail: q.detail,
-          action: { label: 'Try again', onPress: again },
+          action: { label: 'Move the room', onPress: () => startMoving(state) },
         });
         break;
       }
@@ -220,15 +337,52 @@ export function ArRoom({
     }
   };
 
+  /** "Place by hand": the room's middle where the dot is, its wall facing the way the phone looks. */
+  const placeHere = () => {
+    if (!lining) return;
+    const snap = controller.getSnapshot();
+    const ray = controller.takeAim();
+    const camera = snap.state.camera;
+    const y = snap.derived.floorY;
+    if (!ray || !camera || y === null) {
+      setNote({ tone: 'error', title: TAP_ERRORS['no-floor'] });
+      return;
+    }
+    const hit = hitLevelPlane(ray, y, MAX_FLOOR_REACH);
+    const ahead = aheadOnFloor({ forward: ray.direction, up: camera.up }) ?? { x: 0, z: -1 };
+    const next = placeByHand(lining, room, {
+      at: hit.ok ? hit.point : null,
+      phone: { x: ray.origin[0], z: ray.origin[2] },
+      ahead,
+      floorY: y,
+    });
+    if (!next || next.phase.kind !== 'done') {
+      setNote({ tone: 'error', title: TAP_ERRORS['no-floor'] });
+      return;
+    }
+    setDriftSeen(snap.state.recoveries);
+    setLining(next);
+    setMoving({ before: lining });
+    setNote(null);
+  };
+
   /* What to say. */
+  const lineUpGuidance: Message | null =
+    lining && !done ? lineUpMessage(lining, room, units) : null;
   const guidance: Message | null =
-    derived.coaching ??
-    floorMessage(derived.floorStatus) ??
-    (lining && !done ? lineUpMessage(lining, room, units) : null);
+    derived.coaching ?? floorMessage(derived.floorStatus) ?? (moving ? null : lineUpGuidance);
+  const guidanceAction: BannerAction | undefined =
+    noFloor && slowFloor ? { label: 'See it in 3D', onPress: onClose } : undefined;
   const designNotice = design.state.notice;
   let banner: React.ReactNode = null;
   if (!lining) {
     banner = <ArBanner tone="error" title="This room has no walls to line up with." />;
+  } else if (moving) {
+    const q = lining.phase.kind === 'done' ? qualityMessage(lining.phase.done, units) : null;
+    banner =
+      lining.phase.kind === 'done' && lining.phase.done.source === 'hand' && q ? (
+        <ArBanner title={q.title} detail={q.detail} />
+      ) : null;
   } else if (done && ar.live) {
     banner = <ArBanner tone="error" title={ar.live} />;
   } else if (drifted) {
@@ -253,7 +407,7 @@ export function ArRoom({
   } else if (done && designNotice) {
     banner = (
       <ArBanner
-        tone={designNotice.kind === 'removed' ? 'info' : 'error'}
+        tone={noticeTone(designNotice)}
         title={noticeText(designNotice, ar.nameOf, ar.productName)}
         action={
           designNotice.kind === 'removed'
@@ -273,21 +427,39 @@ export function ArRoom({
   }
 
   const step = lining ? aimedStep(lining) : null;
+  const span = lining
+    ? spanFromFirst(lining, floorY, derived.aim.ok ? derived.aim.point : null)
+    : null;
+  const promptLabel =
+    lining && step !== null ? cornerPrompt(room, currentPair(lining), step, units).label : null;
   const reticleLabel = !derived.aim.ok
     ? aimLabel(derived.aim, units)
-    : lining && step !== null
-      ? cornerPrompt(room, currentPair(lining), step, units).label
-      : selectedId
-        ? null
-        : aimLabel(derived.aim, units);
+    : promptLabel
+      ? span !== null
+        ? `${promptLabel} · ${formatLength(span, units)} from corner 1`
+        : promptLabel
+      : moving
+        ? 'Turns about this dot'
+        : selectedId
+          ? null
+          : aimLabel(derived.aim, units);
   const poor = lining?.phase.kind === 'poor';
+  const phoneInRoom =
+    moving && lineUp && tracking.camera
+      ? worldToRoom(lineUp, { x: tracking.camera.position[0], z: tracking.camera.position[2] })
+      : null;
 
   return (
     <>
-      <GestureDetector gesture={ar.gesture}>
+      <GestureDetector
+        key={moving ? 'room' : 'furniture'}
+        gesture={moving ? moverGestures.gesture : ar.gesture}
+      >
         <View style={StyleSheet.absoluteFill} collapsable={false} />
       </GestureDetector>
-      {!done || !selectedId ? <ArReticle ok={derived.aim.ok} label={reticleLabel} /> : null}
+      {!done || !selectedId || moving ? (
+        <ArReticle ok={derived.aim.ok} label={reticleLabel} />
+      ) : null}
       <View
         className="absolute inset-0"
         pointerEvents="box-none"
@@ -297,11 +469,19 @@ export function ArRoom({
           <ArTopBar title={summary.name} onClose={onClose}>
             {done ? (
               <>
+                {moving ? null : (
+                  <RoundButton
+                    icon={LuBox}
+                    label={ghost ? 'Hide the ghost walls' : 'Show the ghost walls'}
+                    onPress={() => setGhost(!ghost)}
+                    active={ghost}
+                  />
+                )}
                 <RoundButton
-                  icon={LuBox}
-                  label={ghost ? 'Hide the ghost walls' : 'Show the ghost walls'}
-                  onPress={() => setGhost(!ghost)}
-                  active={ghost}
+                  icon={LuMove}
+                  label={moving ? 'Stop moving the room' : 'Move the room'}
+                  onPress={() => (moving ? setMoving(null) : startMoving())}
+                  active={moving !== null}
                 />
                 <RoundButton icon={LuLocateFixed} label="Line up again" onPress={again} />
               </>
@@ -312,7 +492,9 @@ export function ArRoom({
               <SaveIndicator status={status} />
             </View>
           ) : null}
-          {guidance ? <ArBanner title={guidance.title} detail={guidance.detail} /> : null}
+          {guidance ? (
+            <ArBanner title={guidance.title} detail={guidance.detail} action={guidanceAction} />
+          ) : null}
           {banner}
         </View>
         <View className="flex-1" pointerEvents="box-none" />
@@ -339,7 +521,11 @@ export function ArRoom({
                 )}
                 <View className="flex-row flex-wrap gap-2">
                   {step === 1 ? (
-                    <OverlayButton label="Undo" icon onPress={() => setLining(undoTap(lining))} />
+                    <OverlayButton
+                      label="Undo"
+                      icon={LuUndo2}
+                      onPress={() => setLining(undoTap(lining))}
+                    />
                   ) : null}
                   {lining.pairs.length > 1 ? (
                     <OverlayButton
@@ -347,10 +533,51 @@ export function ArRoom({
                       onPress={() => setLining(otherCorners(lining))}
                     />
                   ) : null}
+                  <OverlayButton
+                    label="Place by hand"
+                    icon={LuHand}
+                    onPressIn={() => controller.holdAim()}
+                    onPress={placeHere}
+                    disabled={floorY === null}
+                    hint="Puts the room where the dot is; then drag and turn it into place."
+                  />
                   {lining.previous ? (
                     <OverlayButton label="Cancel" onPress={() => setLining(cancelLineUp(lining))} />
                   ) : null}
                 </View>
+              </View>
+            </View>
+          ) : done && moving ? (
+            <View className="flex-row items-end gap-3" pointerEvents="box-none">
+              <LineUpPlan room={room} phone={phoneInRoom} size={112} />
+              <View className="flex-1">
+                <ArCard>
+                  <View className="gap-1">
+                    <Text className="text-base font-semibold">Move the room</Text>
+                    <Text className="text-muted-foreground text-xs">
+                      One finger drags the room along the floor, two fingers turn it. Line up the
+                      ghost walls with the real walls. The blue dot on the plan is you.
+                    </Text>
+                  </View>
+                  <View className="flex-row flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onPress={turnQuarter}
+                      accessibilityLabel="Turn the room a quarter turn"
+                    >
+                      <Icon as={LuRotateCw} size={14} />
+                      <Text>Turn 90°</Text>
+                    </Button>
+                    <Button variant="outline" size="sm" onPress={undoMove}>
+                      <Icon as={LuUndo2} size={14} />
+                      <Text>Undo</Text>
+                    </Button>
+                    <Button size="sm" className="flex-1" onPress={() => setMoving(null)}>
+                      <Text>Done</Text>
+                    </Button>
+                  </View>
+                </ArCard>
               </View>
             </View>
           ) : done ? (
@@ -379,19 +606,37 @@ export function ArRoom({
   );
 }
 
+/** What the room mover reads before the screen has given it anything. */
+function idleMover(): RoomMoverInput {
+  return { lineUp: null, floorY: null, pivot: () => null, onMove: () => {}, onEnd: () => {} };
+}
+
 /** An outlined button over the camera view. */
 function OverlayButton({
   label,
   icon,
   onPress,
+  onPressIn,
+  disabled,
+  hint,
 }: {
   label: string;
-  icon?: boolean;
+  icon?: React.ComponentProps<typeof Icon>['as'];
   onPress: () => void;
+  onPressIn?: () => void;
+  disabled?: boolean;
+  hint?: string;
 }) {
   return (
-    <Button variant="outline" className="border-white/40 bg-black/40" onPress={onPress}>
-      {icon ? <Icon as={LuUndo2} size={16} className="text-white" /> : null}
+    <Button
+      variant="outline"
+      className="border-white/40 bg-black/40"
+      onPress={onPress}
+      onPressIn={onPressIn}
+      disabled={disabled}
+      accessibilityHint={hint}
+    >
+      {icon ? <Icon as={icon} size={16} className="text-white" /> : null}
       <Text className="text-white">{label}</Text>
     </Button>
   );

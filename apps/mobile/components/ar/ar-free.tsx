@@ -11,7 +11,7 @@ import type { ArController } from '@/ar/controller';
 import { freeRoom } from '@/ar/free-room';
 import { scanLineUp } from '@/ar/pose';
 import { FurniturePicker } from '@/components/furnish/furniture-picker';
-import { noticeText } from '@/furnish/describe';
+import { noticeText, noticeTone } from '@/furnish/describe';
 import { useDesign } from '@/furnish/use-design';
 import type { CatalogIndex } from '@/lib/catalog-data';
 import type { Store } from '@/lib/store';
@@ -101,7 +101,7 @@ export function ArFree({
           ) : null}
           {!ar.live && !error && notice ? (
             <ArBanner
-              tone={notice.kind === 'removed' ? 'info' : 'error'}
+              tone={noticeTone(notice)}
               title={noticeText(notice, ar.nameOf, ar.productName)}
               action={
                 notice.kind === 'removed'

@@ -22,6 +22,7 @@ import {
   removePicture,
   retryAllNow,
   retryDelayMs,
+  shotRows,
   shotSettled,
   shotText,
   shotUpload,
@@ -331,6 +332,20 @@ describe('right after Take picture', () => {
       'Not saved to Photos: allow it in Settings. It will upload when the connection is back. Some furniture was still loading and shows as grey boxes.',
     );
     expect(shotText('saving', 'uploading', false)).toContain('Saving to Photos…');
+  });
+
+  it('shows one line for Photos and one for this room, each done, going or a problem', () => {
+    expect(shotRows('saved', 'uploaded')).toEqual([
+      { tone: 'done', text: 'Saved to Photos' },
+      { tone: 'done', text: 'Saved in this room’s pictures and on the website' },
+    ]);
+    const [photos, room] = shotRows('denied', 'waiting');
+    expect(photos.tone).toBe('warn');
+    expect(photos.text).toContain('Settings');
+    expect(room).toMatchObject({ tone: 'busy' });
+    expect(room.text).toContain('when the connection is back');
+    expect(shotRows('saving', 'uploading').map((r) => r.tone)).toEqual(['busy', 'busy']);
+    expect(shotRows('failed', 'failed').map((r) => r.tone)).toEqual(['warn', 'warn']);
   });
 
   it('lets the card go once nothing is happening', () => {

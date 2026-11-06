@@ -16,8 +16,20 @@ it is planned for after the demo (see "After the demo" in [build.md](../build.md
 
 ## Camera view (AR)
 
-- A saved room is lined up by tapping two corners (right after a scan it is lined up already).
-  Over a long walk the phone's tracking can drift: "Line up again" fixes it.
+- A saved room opens on its page in 3D at once, with no camera. The camera view lines it up
+  from two taps at the ends of one wall, in either order, or the room is placed by hand (right
+  after a scan it is lined up already). The taps rarely match the plan exactly, since a scan is
+  about 90% right: the line-up splits the difference between the two corners and says how big it
+  is, and **Move the room** drags and turns it by hand. With a big scan error on a long wall, the
+  far end of the room can sit that far off; move it by hand.
+- A line-up is not kept between visits: each visit to the camera view lines up again (every AR
+  session starts afresh). Over a long walk the phone's tracking can drift: "Line up again" fixes
+  it.
+- Which corner is which is told by the wall's left and right end seen from inside the room, and
+  by doors and windows near it. A room that looks the same both ways round (a plain rectangle)
+  can be lined up half a turn out if the user faces the wrong long wall; the ghost doors and
+  windows show it. Aim the dot at the middle of the room and tap **Turn 90°** twice (it turns
+  about the dot).
 - Needs good light and ARKit (iPhone) or Google Play Services for AR (Android). Some Samsung
   phones on Android 16 have known camera problems with the AR library (see decisions.md).
 - The iPhone Simulator cannot run the app at all; an Android emulator runs everything except AR.
@@ -29,8 +41,10 @@ it is planned for after the demo (see "After the demo" in [build.md](../build.md
   after the demo and will be labelled "AI".
 - Pictures upload while the app is open: one taken offline (or when the app is closed before it
   finishes) stays on the phone and uploads the next time the app is open with a connection.
-- Pictures cannot be deleted from the app or the website yet. Saving to Photos is optional: if
-  it is not allowed, the picture still goes to the room.
+- Pictures are deleted on the room page (press and hold one, or **Delete picture** full
+  screen). Deleting one that is already uploaded needs a connection; a picture not uploaded yet
+  is deleted at once. The copy in Photos stays: the app never deletes from Photos. Saving to
+  Photos is optional: if it is not allowed, the picture still goes to the room.
 - The website lists the pictures; its "Download picture at twice screen resolution" is not built
   yet.
 
@@ -40,6 +54,13 @@ it is planned for after the demo (see "After the demo" in [build.md](../build.md
   without a connection. A room never opened on this phone needs a connection the first time.
 - Firestore's own offline cache lives in memory on the phone and is gone after a restart; the
   app's copy (AsyncStorage) covers that.
+- Deleting a room needs a connection, so that its pictures, their files and its link go from the
+  website too; a delete cut short by the connection is finished by deleting again. Renaming works
+  offline and is sent when the connection is back.
+- A furniture change made elsewhere (the website, another phone) shows on an open furniture or
+  camera screen within a few seconds, unless a piece is being moved or a change is still saving
+  on the phone at that moment: then the last change wins. The room editor (walls, doors and
+  windows) does not follow changes made elsewhere while it is open.
 
 ## Furniture
 

@@ -8,6 +8,11 @@
  * (lib/picture-state.ts) and is tried again at once when the app comes back to the front or a
  * room page sees the server again. Once on the server, the JPEG moves to the cache folder, where
  * the room page still shows it from (the system may clear it; then it comes from Storage).
+ *
+ * Deleting a picture (`deletePicture`) stops its upload if it is on its way, forgets it on the
+ * phone, then deletes its JPEG in Storage and its record (in that order, so a try cut short can
+ * simply be made again). Deleting a room holds its uploads first (`holdRoom`), so none lands
+ * while the room's pictures are being deleted.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { pictureFromFirestore, type CapturePlatform } from '@youngvista/core';
@@ -16,6 +21,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import {
   collection,
+  deleteDoc,
   doc,
   limit,
   onSnapshot,
@@ -24,7 +30,13 @@ import {
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytesResumable, type UploadTask } from 'firebase/storage';
+import {
+  deleteObject,
+  getDownloadURL,
+  ref,
+  uploadBytesResumable,
+  type UploadTask,
+} from 'firebase/storage';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 import { errorCode } from './auth-errors';
@@ -81,8 +93,41 @@ const deleteQuietly = (uri: string) => {
   }
 };
 
+/** Forgets an uploaded picture's JPEG on this phone, if it is still here. */
+export function forgetUploadedFile(id: string): void {
+  const uri = uploadedFile(id);
+  if (uri) deleteQuietly(uri);
+}
+
 /** A failure with a code, like Firebase's, so `pictureFailure` can read it. */
-const failure = (code: string, message: string) => Object.assign(new Error(message), { code });
+export const failure = (code: string, message: string) =>
+  Object.assign(new Error(message), { code });
+
+/** How long one server step of a delete may take before it counts as a dropped connection (ms). */
+const DELETE_STEP_MS = 20_000;
+
+/** `promise`, or a 'deadline-exceeded' failure after `ms`. */
+export function withTimeout<T>(promise: Promise<T>, ms = DELETE_STEP_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(failure('deadline-exceeded', 'The server did not answer in time.')),
+      ms,
+    );
+  });
+  return Promise.race([promise, late]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+/** Deletes a file in Storage; one that is not there counts as deleted. */
+export async function deleteStorageFile(path: string): Promise<void> {
+  try {
+    await withTimeout(deleteObject(ref(firebaseStorage(), path)));
+  } catch (error) {
+    if (errorCode(error) !== 'storage/object-not-found') throw error;
+  }
+}
 
 /** No progress for this long while uploading: the tile says "Slow connection…" (ms). */
 const SLOW_AFTER_MS = 15_000;
@@ -106,6 +151,12 @@ class PictureUploads {
   private generation = 0;
   private task: UploadTask | null = null;
   private saving: Promise<void> = Promise.resolve();
+  /** The picture being worked on, and its work: what a delete waits for. */
+  private current: { picture: PendingPicture; work: Promise<void> } | null = null;
+  /** Rooms being deleted: their pictures are not uploaded. */
+  private readonly held = new Set<string>();
+  /** Pictures deleted while their record was being written: the record goes again once written. */
+  private readonly deleted = new Set<string>();
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -191,17 +242,74 @@ class PictureUploads {
     deleteQuietly(picture.file);
   }
 
+  /** The picture whose upload is running now, if any. */
+  isActive(id: string): boolean {
+    return this.current?.picture.id === id;
+  }
+
+  /** Waits for the running work if `match` says it is the one, at most `ms`; an upload stops. */
+  private async stop(match: (p: PendingPicture) => boolean, ms = 10_000): Promise<void> {
+    const running = this.current;
+    if (!running || !match(running.picture)) return;
+    if (running.picture.step === 'upload') this.task?.cancel();
+    await withTimeout(running.work, ms).catch(() => {});
+  }
+
+  /**
+   * Deleting a picture: stops its upload if it is on its way, and forgets it and its file.
+   * Resolves with what the queue held (its step says whether its JPEG reached Storage), or null
+   * when it was not waiting on this phone.
+   */
+  async remove(id: string): Promise<PendingPicture | null> {
+    const before = this.snapshot.queue.find((p) => p.id === id) ?? null;
+    if (!before) return null;
+    this.deleted.add(id);
+    await this.stop((p) => p.id === id);
+    const picture = this.snapshot.queue.find((p) => p.id === id) ?? before;
+    this.update((q) => removePicture(q, id));
+    await this.persist();
+    deleteQuietly(picture.file);
+    this.kick();
+    return picture;
+  }
+
+  /** Deleting a room: its pictures are not uploaded meanwhile; one on its way is stopped. */
+  async holdRoom(roomId: string): Promise<void> {
+    this.held.add(roomId);
+    await this.stop((p) => p.roomId === roomId);
+  }
+
+  /** The room was not deleted after all: its pictures upload again. */
+  releaseRoom(roomId: string): void {
+    if (this.held.delete(roomId)) this.kick();
+  }
+
+  /** The room is being deleted: forgets its waiting pictures and their files. */
+  async forgetRoom(roomId: string): Promise<void> {
+    const gone = this.snapshot.queue.filter((p) => p.roomId === roomId);
+    if (!gone.length) return;
+    for (const p of gone) this.deleted.add(p.id);
+    this.update((q) => q.filter((p) => p.roomId !== roomId));
+    await this.persist();
+    for (const p of gone) deleteQuietly(p.file);
+  }
+
   /** Works on the next picture that is due, or waits until one is. */
   private kick = (): void => {
     this.clearTimer();
     if (this.working || !this.snapshot.uid) return;
     const now = Date.now();
-    const next = nextDue(this.snapshot.queue, now);
+    const queue = this.snapshot.queue.filter((p) => !this.held.has(p.roomId));
+    const next = nextDue(queue, now);
     if (next) {
-      void this.work(next);
+      const work = this.work(next);
+      this.current = { picture: next, work };
+      void work.finally(() => {
+        if (this.current?.work === work) this.current = null;
+      });
       return;
     }
-    const wake = nextWakeAt(this.snapshot.queue);
+    const wake = nextWakeAt(queue);
     if (wake !== null) this.timer = setTimeout(this.kick, Math.max(0, wake - now));
   };
 
@@ -217,12 +325,16 @@ class PictureUploads {
         this.update((q) => pictureUploaded(q, picture.id));
         await this.persist();
       }
+      if (this.deleted.has(picture.id)) return;
       this.set({ active: { id: picture.id, progress: 1, slow: false } });
+      const record = doc(firestore(), 'rooms', picture.roomId, 'pictures', picture.id);
       // Resolves once the server has it (Firestore holds it while offline).
-      await setDoc(
-        doc(firestore(), 'rooms', picture.roomId, 'pictures', picture.id),
-        pictureRecord(picture, serverTimestamp()),
-      );
+      await setDoc(record, pictureRecord(picture, serverTimestamp()));
+      // Deleted while its record was on its way: the record goes again.
+      if (this.deleted.has(picture.id)) {
+        void deleteDoc(record).catch(() => {});
+        return;
+      }
       if (!current()) return;
       keepUploadedCopy(picture);
       this.update((q) => removePicture(q, picture.id));
@@ -357,6 +469,44 @@ function keepUploadedCopy(picture: PendingPicture) {
 
 /** The capture's temporary file, once Photos has its copy. */
 export const forgetCapture = deleteQuietly;
+
+/**
+ * Deletes a picture of a room: from this phone (its upload, if it is on its way, and its files),
+ * then its JPEG in Storage and its `rooms/{roomId}/pictures/{id}` record. A picture that never
+ * left the phone is deleted without a connection; one on the server needs it (`online`, from the
+ * room's snapshot): then it fails at once with 'unavailable'. The copy in Photos stays.
+ */
+export async function deletePicture(input: {
+  uid: string;
+  roomId: string;
+  picture: StripPicture;
+  online: boolean;
+}): Promise<void> {
+  const { uid, roomId, picture, online } = input;
+  const waiting = picture.pending;
+  // Its JPEG may be in Storage: uploaded, or the upload got that far (or is running now).
+  const onServer =
+    !waiting || waiting.step === 'record' || (online && pictureUploads.isActive(picture.id));
+  if (onServer && !online) {
+    throw failure('unavailable', 'Deleting a picture on the server needs a connection.');
+  }
+  if (waiting) await pictureUploads.remove(picture.id);
+  forgetUploadedFile(picture.id);
+  if (!onServer) return;
+  const own = `users/${uid}/rooms/${roomId}/pictures/`;
+  const path =
+    picture.storagePath && picture.storagePath.startsWith(own)
+      ? picture.storagePath
+      : pictureStoragePath({ uid, roomId, id: picture.id });
+  await deleteStorageFile(path);
+  try {
+    await withTimeout(deleteDoc(doc(firestore(), 'rooms', roomId, 'pictures', picture.id)));
+  } catch (error) {
+    // A picture still waiting on this phone has no record; when its room is gone, the rules
+    // refuse even looking (they read the room's owner), which means there is nothing to delete.
+    if (!waiting || errorCode(error) !== 'permission-denied') throw error;
+  }
+}
 
 export type PhotosResult = 'saved' | 'denied' | 'failed';
 

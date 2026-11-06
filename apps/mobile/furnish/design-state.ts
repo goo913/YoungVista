@@ -54,7 +54,9 @@ export interface DesignGesture {
 export type DesignNotice =
   | { kind: 'refused'; id: string; reasons: PlacementIssue[]; overlaps: string[] }
   | { kind: 'no-space'; productId: string }
-  | { kind: 'removed'; item: DesignItem; index: number };
+  | { kind: 'removed'; item: DesignItem; index: number }
+  /** The design was changed elsewhere (the website, another phone) and loaded here. */
+  | { kind: 'updated' };
 
 export interface DesignState {
   /** The design as saved. */
@@ -67,7 +69,8 @@ export interface DesignState {
 }
 
 export type DesignAction =
-  | { type: 'load'; items: DesignItem[] }
+  /** The design as saved: `elsewhere` when it was changed on the website or another phone. */
+  | { type: 'load'; items: DesignItem[]; elsewhere?: boolean }
   /**
    * A new piece: at `at` when given (where the AR view's dot meets the floor, or the nearest free
    * spot to it), else in the nearest free spot to the room's centre.
@@ -265,6 +268,7 @@ export function reduceDesign(
         items: action.items,
         gesture: null,
         selectedId: state.selectedId && ids.has(state.selectedId) ? state.selectedId : null,
+        notice: action.elsewhere ? { kind: 'updated' } : state.notice,
       };
     }
 

@@ -21,11 +21,14 @@ import {
   readRoomsCopy,
   removeRoomCopy,
   roomsWithPending,
+  setPending,
   writeRoomCopy,
   writeRoomsCopy,
 } from './pending';
 import {
+  cleanRoomName,
   designUpdate,
+  nameUpdate,
   roomsErrorMessage,
   roomUpdate,
   scannedRoomDoc,
@@ -37,6 +40,19 @@ import {
 } from './room-doc';
 
 export { saveErrorMessage, type NewScannedRoom, type RoomSummary } from './room-doc';
+
+/**
+ * The room's design as the server has it, from the latest snapshot that came from the server
+ * with none of this phone's writes pending: what screens compare with to follow changes made
+ * elsewhere (furnish/design-follow.ts). `revision` goes up with every such snapshot.
+ */
+export interface ServerDesign {
+  design: Design;
+  revision: number;
+}
+
+/** Counts server snapshots across every `useRoom`, so a revision is never seen twice. */
+let serverRevisions = 0;
 
 export type Loadable<T> =
   | { status: 'loading' }
@@ -128,6 +144,12 @@ export type RoomState = Loadable<RoomSummary> & {
    * then what is shown may be an older copy from the phone. Editors wait for it.
    */
   settled: boolean;
+  /** The design as the server has it (see `ServerDesign`), or null before the server answers. */
+  server: ServerDesign | null;
+  /** A design edit made on this phone is not on the server yet (it is laid over `data`). */
+  pendingDesign: boolean;
+  /** The room was there, and has been deleted since (on this phone or elsewhere). */
+  deleted: boolean;
 };
 
 /**
@@ -140,6 +162,9 @@ export function useRoom(roomId: string): RoomState {
   const [state, setState] = useState<Loadable<RoomSummary>>({ status: 'loading' });
   const [online, setOnline] = useState(true);
   const [settled, setSettled] = useState(false);
+  const [serverDesign, setServerDesign] = useState<ServerDesign | null>(null);
+  const [pendingDesign, setPendingDesign] = useState(false);
+  const [deleted, setDeleted] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => {
     setState({ status: 'loading' });
@@ -153,6 +178,7 @@ export function useRoom(roomId: string): RoomState {
     let copyRead = false;
     let offlineMissing = false;
     let pending: PendingEdits = {};
+    let seen = false;
 
     const show = () => {
       if (!live) return;
@@ -174,6 +200,7 @@ export function useRoom(roomId: string): RoomState {
     const loadPending = () =>
       void readPending(uid, roomId).then((p) => {
         pending = p;
+        if (live) setPendingDesign(p.design !== undefined);
         show();
       });
     loadPending();
@@ -190,10 +217,16 @@ export function useRoom(roomId: string): RoomState {
         setOnline(fromServer);
         setSettled(true);
         if (snap.exists()) {
+          seen = true;
           server = toSummary(snap.id, snap.data({ serverTimestamps: 'estimate' }));
-          if (fromServer && !snap.metadata.hasPendingWrites) void writeRoomCopy(uid, server);
+          if (fromServer && !snap.metadata.hasPendingWrites) {
+            void writeRoomCopy(uid, server);
+            setServerDesign({ design: server.design, revision: ++serverRevisions });
+          }
           show();
-        } else if (fromServer) {
+        } else if (fromServer || seen) {
+          // Gone from the server, or deleted on this phone (Firestore's memory has the delete).
+          if (seen) setDeleted(true);
           server = null;
           void removeRoomCopy(uid, roomId);
           setState({ status: 'missing' });
@@ -217,7 +250,7 @@ export function useRoom(roomId: string): RoomState {
     };
   }, [uid, roomId, attempt]);
 
-  return { ...state, online, settled, retry };
+  return { ...state, online, settled, retry, server: serverDesign, pendingDesign, deleted };
 }
 
 /** Saves a scanned room and returns its id. */
@@ -237,6 +270,32 @@ export async function saveRoomShape(roomId: string, room: Room): Promise<void> {
   await updateDoc(doc(firestore(), 'rooms', roomId), roomUpdate(room));
 }
 
+/** Writes the room's name (`rooms/{id}.name`); resolves once the server has it. */
+export async function saveRoomName(roomId: string, name: string): Promise<void> {
+  await updateDoc(doc(firestore(), 'rooms', roomId), nameUpdate(name));
+}
+
+/**
+ * Renames a room. The new name shows at once (Firestore's own copy, and the phone's pending
+ * edits laid over the room), works offline, and survives closing the app before the server has
+ * it (sent again on the next start, like the design). Resolves at once with the name as saved;
+ * the write goes on in the background.
+ */
+export async function renameRoom(uid: string, roomId: string, name: string): Promise<string> {
+  const clean = cleanRoomName(name) || 'Untitled room';
+  await setPending(uid, roomId, { name: clean });
+  void saveRoomName(roomId, clean).then(
+    () => clearPending(uid, roomId, { name: clean }),
+    (error: unknown) => {
+      const code = errorCode(error);
+      if (code === 'not-found' || code === 'permission-denied') {
+        void clearPending(uid, roomId, { name: clean });
+      }
+    },
+  );
+  return clean;
+}
+
 /**
  * Sends edits left from an earlier run that never reached the server (the app was closed while
  * offline). Firestore holds them until the connection is back.
@@ -247,6 +306,7 @@ export async function sendLeftoverEdits(uid: string): Promise<void> {
     const writes: Promise<void>[] = [];
     if (pending.design) writes.push(saveDesign(roomId, pending.design));
     if (pending.room) writes.push(saveRoomShape(roomId, pending.room));
+    if (pending.name !== undefined) writes.push(saveRoomName(roomId, pending.name));
     void Promise.all(writes).then(
       () => clearPending(uid, roomId, pending),
       (error: unknown) => {

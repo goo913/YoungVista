@@ -2,7 +2,11 @@ import { roomFromFirestore, roomFromPoints } from '@youngvista/core';
 import { Timestamp } from 'firebase/firestore';
 import { describe, expect, it } from 'vitest';
 import {
+  cleanRoomName,
+  deleteErrorMessage,
   designUpdate,
+  nameUpdate,
+  pendingIsEmpty,
   listFromCache,
   listToCache,
   pendingFromText,
@@ -201,6 +205,42 @@ describe('the copies kept on the phone', () => {
       moved,
     );
     expect(pendingFromText('garbage')).toEqual({});
+  });
+
+  it('keep a new name not on the server yet, and show it', () => {
+    const pending = pendingFromText(pendingToText({ name: 'Guest room' }));
+    expect(pending).toEqual({ name: 'Guest room' });
+    expect(pendingIsEmpty(pending)).toBe(false);
+    expect(pendingIsEmpty({})).toBe(true);
+    expect(withPending(summary, pending).name).toBe('Guest room');
+    // A blank name in an old or odd copy is dropped.
+    expect(pendingFromText('{"v":1,"name":"   "}')).toEqual({});
+    expect(pendingFromText('{"v":1,"name":7}')).toEqual({});
+  });
+});
+
+describe('renaming', () => {
+  it('cleans a typed name before saving it', () => {
+    expect(cleanRoomName('  Living   room \n')).toBe('Living room');
+    expect(cleanRoomName('x'.repeat(200))).toHaveLength(80);
+    expect(cleanRoomName('   ')).toBe('');
+    const update = nameUpdate('  Den ');
+    expect(update.name).toBe('Den');
+    expect(Object.keys(update).sort()).toEqual(['name', 'updatedAt']);
+    expect(nameUpdate(' ').name).toBe('Untitled room');
+  });
+});
+
+describe('deleteErrorMessage', () => {
+  it('says what to do when a delete did not finish', () => {
+    expect(deleteErrorMessage({ code: 'unavailable' }, 'room')).toMatch(/connection/);
+    expect(deleteErrorMessage({ code: 'deadline-exceeded' }, 'picture')).toMatch(
+      /before the picture was deleted/,
+    );
+    expect(deleteErrorMessage({ code: 'storage/unauthorized' }, 'picture')).toMatch(/not allowed/);
+    expect(deleteErrorMessage(new Error('x'), 'room')).toBe(
+      'The room could not be deleted. Try again.',
+    );
   });
 });
 
