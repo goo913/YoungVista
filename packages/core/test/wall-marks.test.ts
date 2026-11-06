@@ -166,6 +166,13 @@ describe('room axes and marks', () => {
     expect(side).toMatchObject({ ok: true, axis: 1, facing: -1 });
   });
 
+  it('accepts a view up to 30° from square to a wall', () => {
+    const point = fromRoomFrame(axes, 1.5 * Math.tan(28 * DEG), -1.5);
+    const m = placeMark(point, { x: 0, z: 0 }, axes);
+    expect(m).toMatchObject({ ok: true, axis: 0, facing: 1 });
+    expect(m.ok && m.skewDeg).toBeCloseTo(28, 6);
+  });
+
   it('refuses a view near the diagonal unless the axis is given', () => {
     const point = fromRoomFrame(axes, 1, -1.2); // 40° from square to either wall
     expect(placeMark(point, { x: 0, z: 0 }, axes)).toMatchObject({ ok: false, reason: 'diagonal' });

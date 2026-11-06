@@ -9,6 +9,7 @@
  * It also keeps what the scan log needs (scan-log.ts): the camera about twice a second, the last
  * state of every plane ever seen, and when the floor changed.
  */
+import type { Vec3Tuple } from '@youngvista/core';
 import type { TrackingInfo } from './coaching';
 import type { FloorState } from './floor';
 import {
@@ -95,9 +96,23 @@ export interface ScanRecord {
   floorEvents: FloorEvent[];
   /** Taps on Mark that were refused, by reason. */
   refusedMarks: Partial<Record<AimError, number>>;
+  /** The first MAX_REFUSALS refused taps: when, why, and where the camera aimed. */
+  refusals: Refusal[];
   /** Every time the room was put together (auto-finish or Done). */
   finishes: { t: number; ok: boolean; reason: string | null }[];
 }
+
+/** A refused tap on Mark, with the ray it was aimed along (world space). */
+export interface Refusal {
+  /** ms since the scan started. */
+  t: number;
+  error: AimError;
+  origin: Vec3Tuple;
+  direction: Vec3Tuple;
+}
+
+/** Refused taps kept for the log with their rays (the counts go on regardless). */
+export const MAX_REFUSALS = 40;
 
 const round = (n: number, places: number) => {
   const f = 10 ** places;
@@ -123,6 +138,7 @@ export class ScanController {
   private readonly planeLog = new Map<string, LoggedPlane>();
   private floorEvents: FloorEvent[] = [];
   private readonly refused: Partial<Record<AimError, number>> = {};
+  private readonly refusals: Refusal[] = [];
   private readonly finishes: ScanRecord['finishes'] = [];
 
   constructor(options: ScanControllerOptions = {}) {
@@ -207,6 +223,15 @@ export class ScanController {
       : markAtAim(this.state, this.now(), this.snapshot.derived);
     if (outcome.kind === 'error') {
       this.refused[outcome.error] = (this.refused[outcome.error] ?? 0) + 1;
+      const aimed = steady ?? this.state.camera;
+      if (aimed && this.refusals.length < MAX_REFUSALS) {
+        this.refusals.push({
+          t: this.now() - this.startedAt,
+          error: outcome.error,
+          origin: aimed.position,
+          direction: aimed.forward,
+        });
+      }
     }
     this.set(state);
     return outcome;
@@ -254,6 +279,7 @@ export class ScanController {
       planes: [...this.planeLog.values()].map((p) => ({ ...p })),
       floorEvents: [...this.floorEvents],
       refusedMarks: { ...this.refused },
+      refusals: [...this.refusals],
       finishes: [...this.finishes],
     };
   }

@@ -35,6 +35,14 @@ Stand near the middle; face each wall when you mark it.
 - [ ] Every other wall: one mark at its bottom edge, or at its top edge where furniture is in the
       way. The label under the dot says which edge and how far. Near a corner it says "Face the
       wall". Each wall appears as a line on the floor, a line at the ceiling and a faint wall.
+- [ ] A wall with a bed or desk in front of it: walk around the room first, then aim at the
+      floor in front of the furniture. The label says "The wall is further back" (or "Furniture
+      in the way", or "On furniture" when the dot is on the bed) and Mark is refused. Aim at that
+      wall's top edge instead: it marks, in the right place.
+- [ ] Mark a wall in front of the bed **before** walking past it, then walk past: the wall turns
+      red, the banner says "The red wall is further back", and marking its top edge closes the
+      room.
+- [ ] Mark a wall standing at an angle to it (about 25°): it is accepted, no "Face the wall".
 - [ ] A wrong mark (the side of the bed, say) turns walls red and the room does not close;
       **Undo** fixes it.
 - [ ] Once every wall fits, the room closes by itself and shows its size (`10′ 3″ × 11′ 6″` for

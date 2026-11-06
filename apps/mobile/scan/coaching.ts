@@ -110,6 +110,16 @@ export const STEP_MESSAGES = {
     title: 'Now the next wall',
     detail: 'Aim at its bottom edge (or the top edge if something is in the way) and tap Mark.',
   },
+  'walked-past': {
+    title: 'The red wall is further back',
+    detail:
+      'Your phone has been past it, so it cannot be there. Mark that wall again, at its top edge if furniture hides the bottom.',
+  },
+  'furniture-past': {
+    title: 'The red wall is further back',
+    detail:
+      'A bed, desk or table reaches past it, so it cannot be there. Mark that wall again at its top edge.',
+  },
   conflict: {
     title: 'Two marks disagree',
     detail: 'The red wall does not fit with the others. Tap Undo, or mark that wall again.',
@@ -132,12 +142,14 @@ export interface GuidanceInput {
   floorStatus: 'found' | 'searching' | 'too-high';
   /** Walls step: how the walls fit so far. */
   room: 'closed' | 'conflict' | 'open' | null;
+  /** Walls step: why a marked wall was left out (session.ts `WallEvidence`), if one was. */
+  ruledOut?: 'walked-past' | 'furniture' | null;
   /** Walls step, rectangles: where the next unmarked wall is. */
   turn: TurnDirection | null;
 }
 
 /** The instruction for the current step. */
-export function guidanceFor({ step, floorStatus, room, turn }: GuidanceInput): Message {
+export function guidanceFor({ step, floorStatus, room, ruledOut, turn }: GuidanceInput): Message {
   switch (step) {
     case 'floor':
       return floorStatus === 'too-high' ? STEP_MESSAGES['too-high'] : STEP_MESSAGES.searching;
@@ -147,6 +159,8 @@ export function guidanceFor({ step, floorStatus, room, turn }: GuidanceInput): M
       return STEP_MESSAGES[step];
     case 'walls':
       if (room === 'closed') return STEP_MESSAGES.closed;
+      if (ruledOut)
+        return STEP_MESSAGES[ruledOut === 'furniture' ? 'furniture-past' : 'walked-past'];
       if (room === 'conflict') return STEP_MESSAGES.conflict;
       return turn
         ? {

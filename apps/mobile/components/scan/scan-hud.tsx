@@ -124,15 +124,22 @@ export function Reticle({ derived, units }: { derived: ScanDerived; units: UnitS
     );
   }
   const ok = derived.aim.ok;
+  // Short level lines either side of the ring: laying them along the edge where the wall meets
+  // the floor or the ceiling puts the dot exactly on it.
+  const bar = cn('h-0.5 w-10 rounded-full', ok ? 'bg-white/80' : 'bg-amber-400/80');
   return (
     <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
-      <View
-        className={cn(
-          'size-8 items-center justify-center rounded-full border-2',
-          ok ? 'border-white' : 'border-amber-400',
-        )}
-      >
-        <View className={cn('size-2 rounded-full', ok ? 'bg-green-400' : 'bg-amber-400')} />
+      <View className="flex-row items-center gap-1.5">
+        <View className={bar} />
+        <View
+          className={cn(
+            'size-8 items-center justify-center rounded-full border-2',
+            ok ? 'border-white' : 'border-amber-400',
+          )}
+        >
+          <View className={cn('size-2 rounded-full', ok ? 'bg-green-400' : 'bg-amber-400')} />
+        </View>
+        <View className={bar} />
       </View>
       {/* Below the dot, so it never covers what is being aimed at. */}
       <View className="absolute top-1/2 mt-6 rounded-full bg-black/60 px-3 py-1">

@@ -246,9 +246,12 @@ export function wallSegment(
 
 /**
  * A wall's axis is the one most nearly square to the view. A view more than this many degrees
- * from square to both (within 30° of the diagonal) could be either wall, and is refused.
+ * from square to both (within 15° of the diagonal) could be either wall, and is refused. It was
+ * 15° (within 30° of the diagonal) until a real scan showed people aiming at walls from 20-30°
+ * and getting refused for a minute; a view 30° from one wall is 60° from the other, so the wall
+ * the user faces is still clear, and a mark near a corner is right on either wall.
  */
-export const MAX_VIEW_SKEW_DEG = 15;
+export const MAX_VIEW_SKEW_DEG = 30;
 /** A mark closer than this to the camera, seen from above, has no clear view direction (m). */
 const MIN_VIEW_DISTANCE = 0.25;
 

@@ -35,6 +35,7 @@ import {
   wallSegment,
   type EulerOrder,
   type GroupedWalls,
+  type MarkedWall,
   type RectilinearResult,
   type Room,
   type RoomAxes,
@@ -46,6 +47,7 @@ import {
   type WallPlacement,
 } from '@youngvista/core';
 import {
+  TRACKING_STATE,
   coachingFor,
   guidanceFor,
   type Coaching,
@@ -66,8 +68,11 @@ import {
 import {
   VIRO_EULER_ORDER,
   planeArea,
+  planeExtentCorners,
   planeHeight,
+  planeNormal,
   planeWallLine,
+  planeWorldVertices,
   type CenterSpace,
 } from './planes';
 import type { CameraPose, TrackedPlane } from './viro-anchor';
@@ -118,6 +123,11 @@ export interface ScanState {
   history: readonly ('mark' | 'skip-ceiling')[];
   nextMarkNumber: number;
   options: ScanOptions;
+  /**
+   * Where the phone has been on the floor plan since the first mark, while tracking was normal,
+   * a point every VISIT_STEP. A wall cannot stand where the phone has been (`wallEvidence`).
+   */
+  visited: readonly Vec2[];
 }
 
 export function createScanState(options: Partial<ScanOptions> = {}): ScanState {
@@ -132,6 +142,7 @@ export function createScanState(options: Partial<ScanOptions> = {}): ScanState {
     history: [],
     nextMarkNumber: 1,
     options: { ...DEFAULT_SCAN_OPTIONS, ...options },
+    visited: [],
   };
 }
 
@@ -150,8 +161,27 @@ export function removePlane(state: ScanState, id: string): ScanState {
   return withFloor({ ...state, planes });
 }
 
+/** The phone's path is kept as a point every this far (m)... */
+const VISIT_STEP = 0.2;
+/** ...up to this many points (a long walk round a big room is a few hundred). */
+const MAX_VISITED = 2000;
+
+/**
+ * Adds the phone's position to the path. Only after the first mark (the user may walk in from
+ * another room before that) and only while tracking is normal (positions can jump otherwise).
+ */
+function visit(state: ScanState, camera: CameraPose): readonly Vec2[] {
+  const v = state.visited;
+  if (state.marks.length === 0 || v.length >= MAX_VISITED) return v;
+  if (state.tracking?.state !== TRACKING_STATE.NORMAL) return v;
+  const p = floorPosition(camera);
+  const last = v[v.length - 1];
+  if (last && Math.hypot(p.x - last.x, p.z - last.z) < VISIT_STEP) return v;
+  return [...v, p];
+}
+
 export const setCamera = (state: ScanState, camera: CameraPose): ScanState =>
-  withFloor({ ...state, camera });
+  withFloor({ ...state, camera, visited: visit(state, camera) });
 
 export const setTracking = (state: ScanState, tracking: TrackingInfo): ScanState => ({
   ...state,
@@ -249,6 +279,189 @@ function ceilingOf(state: ScanState, floorY: number, first: FirstWall): CeilingI
 }
 
 /* ------------------------------------------------------------------------------------------ */
+/* Where a wall cannot be                                                                      */
+/* ------------------------------------------------------------------------------------------ */
+
+/*
+ * A mark at the bottom edge only works when that edge can be seen. A bed or desk often hides it,
+ * and then the dot lands on the floor in front of the furniture: the wall comes out too close,
+ * as in the owner's first iPhone 15 scan after the marked-wall rebuild (the window wall behind
+ * the bed came out 1.5 m short, though the phone had been well past it). Two things the phone
+ * knows for sure rule a wall out: where the phone itself has been, and furniture tops that reach
+ * through the wall's line.
+ */
+
+/** The phone was more than this past a wall's line: the wall cannot be there (m). */
+export const PAST_WALL_MARGIN = 0.6;
+/** ...at this many points of its path at least (one odd camera reading is not enough). */
+const PAST_WALL_MIN_VISITS = 2;
+/** A furniture top reaching more than this past a wall's line rules the wall out (m)... */
+export const FURNITURE_PAST_WALL = 0.4;
+/** ...when it also reaches this far inside the line: one surface through the wall. */
+const FURNITURE_INSIDE = 0.05;
+/** Level surfaces between these heights above the floor are furniture tops (m). */
+const FURNITURE_MIN_HEIGHT = 0.15;
+const FURNITURE_MAX_HEIGHT = 1.3;
+/**
+ * Only evidence within this distance along the wall from its marks counts (m), so the far wing of
+ * an L-shaped room is not taken as being past the wall.
+ */
+const EVIDENCE_ALONG = 1.5;
+
+/** Why a wall cannot be where its marks put it. */
+export type WallEvidence = 'walked-past' | 'furniture';
+
+/** How far a wall is drawn past its marks when no crossing wall ends it yet (m). */
+const OPEN_END = 0.6;
+
+/** A level furniture top (bed, desk, table) on the floor plan. */
+interface FurnitureTop {
+  /** World height (y). */
+  y: number;
+  outline: Vec2[];
+}
+
+function furnitureTops(state: ScanState, floorY: number): FurnitureTop[] {
+  const { eulerOrder, centerSpace } = state.options;
+  const tops: FurnitureTop[] = [];
+  for (const plane of Object.values(state.planes)) {
+    if (plane.id === state.floor?.planeId || plane.alignment === 'Vertical') continue;
+    if (!(planeNormal(plane, eulerOrder).y > 0.9)) continue; // facing up, not an underside
+    const y = planeHeight(plane);
+    const h = y - floorY;
+    if (h < FURNITURE_MIN_HEIGHT || h > FURNITURE_MAX_HEIGHT) continue;
+    const corners =
+      plane.vertices.length >= 9
+        ? planeWorldVertices(plane, eulerOrder)
+        : planeExtentCorners(plane, eulerOrder, centerSpace);
+    if (corners.length >= 3) tops.push({ y, outline: corners.map((c) => ({ x: c.x, z: c.z })) });
+  }
+  return tops;
+}
+
+/** A wall's line and where along it the marks are. */
+interface WallLine {
+  axis: WallAxis;
+  facing: WallFacing;
+  offset: number;
+  alongFrom: number;
+  alongTo: number;
+}
+
+/** Why the wall cannot be on `line`, or null when nothing rules it out. */
+export function wallEvidence(
+  line: WallLine,
+  axes: RoomAxes,
+  visited: readonly Vec2[],
+  tops: readonly FurnitureTop[],
+): WallEvidence | null {
+  const n = wallNormal(axes, line.axis);
+  const t = wallDirection(axes, line.axis);
+  // How far past the wall a point is: positive on the side away from the room.
+  const past = (p: Vec2) => -(p.x * n.x + p.z * n.z - line.offset) * line.facing;
+  const along = (p: Vec2) => p.x * t.x + p.z * t.z;
+  const lo = line.alongFrom - EVIDENCE_ALONG;
+  const hi = line.alongTo + EVIDENCE_ALONG;
+  let visits = 0;
+  for (const p of visited) {
+    if (past(p) <= PAST_WALL_MARGIN) continue;
+    const a = along(p);
+    if (a >= lo && a <= hi && ++visits >= PAST_WALL_MIN_VISITS) return 'walked-past';
+  }
+  for (const top of tops) {
+    let most = -Infinity;
+    let least = Infinity;
+    let from = Infinity;
+    let to = -Infinity;
+    for (const q of top.outline) {
+      const d = past(q);
+      const a = along(q);
+      most = Math.max(most, d);
+      least = Math.min(least, d);
+      from = Math.min(from, a);
+      to = Math.max(to, a);
+    }
+    if (most > FURNITURE_PAST_WALL && least < -FURNITURE_INSIDE && to >= lo && from <= hi) {
+      return 'furniture';
+    }
+  }
+  return null;
+}
+
+/** Even-odd test: is `p` inside the polygon? */
+function insideOutline(p: Vec2, outline: readonly Vec2[]): boolean {
+  let inside = false;
+  for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+    const a = outline[i]!;
+    const b = outline[j]!;
+    if (a.z > p.z !== b.z > p.z && p.x < ((b.x - a.x) * (p.z - a.z)) / (b.z - a.z) + a.x) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/** True when the ray passes through a furniture top before it gets down to height `y`. */
+function rayOnFurniture(ray: Ray, y: number, tops: readonly FurnitureTop[]): boolean {
+  const [ox, oy, oz] = ray.origin;
+  const [dx, dy, dz] = ray.direction;
+  if (!(dy < -1e-6)) return false;
+  return tops.some((top) => {
+    if (!(top.y < oy && top.y > y)) return false;
+    const s = (top.y - oy) / dy;
+    return insideOutline({ x: ox + dx * s, z: oz + dz * s }, top.outline);
+  });
+}
+
+/** A dropped wall: its marks, why it cannot be there, and where it was (drawn in red). */
+export interface DroppedWall {
+  wall: MarkedWall;
+  evidence: WallEvidence;
+  a: Vec2;
+  b: Vec2;
+}
+
+/**
+ * The walls the phone's path or a furniture top rules out, and their marks. The first wall is
+ * never dropped: it sets the room's directions and the ceiling.
+ */
+function contradictedWalls(
+  state: ScanState,
+  grouped: GroupedWalls,
+  tops: readonly FurnitureTop[],
+): { dropped: DroppedWall[]; markIds: Set<string> } {
+  const firstIds = new Set(state.marks.filter((m) => m.role === 'first').map((m) => m.id));
+  const dropped: DroppedWall[] = [];
+  const markIds = new Set<string>();
+  for (const wall of grouped.walls) {
+    if (wall.markIds.some((id) => firstIds.has(id) || id.startsWith('plane:'))) continue;
+    const evidence = wallEvidence(
+      {
+        axis: wall.axis,
+        facing: wall.facing,
+        offset: wall.offset,
+        alongFrom: Math.min(...wall.along),
+        alongTo: Math.max(...wall.along),
+      },
+      grouped.axes,
+      state.visited,
+      tops,
+    );
+    if (!evidence) continue;
+    const seg = wallSegment(
+      grouped.axes,
+      wall.axis,
+      wall.offset,
+      Math.min(...wall.along) - OPEN_END,
+      Math.max(...wall.along) + OPEN_END,
+    );
+    dropped.push({ wall, evidence, a: seg.a, b: seg.b });
+    for (const id of wall.markIds) markIds.add(id);
+  }
+  return { dropped, markIds };
+}
+
+/* ------------------------------------------------------------------------------------------ */
 /* Where the dot is aimed                                                                      */
 /* ------------------------------------------------------------------------------------------ */
 
@@ -262,6 +475,9 @@ export type AimError =
   | 'too-close-to-first'
   | 'under-phone'
   | 'diagonal'
+  | 'walked-past'
+  | 'furniture'
+  | 'on-furniture'
   | 'not-this-wall'
   | 'not-a-ceiling';
 
@@ -276,6 +492,12 @@ export const AIM_MESSAGES: Record<AimError, string> = {
     'Move the dot further along the same wall: at least 50 cm (20 in) from the first mark.',
   'under-phone': 'Aim at the edge of a wall, not at the floor under the phone.',
   diagonal: 'Face the wall more directly, then tap Mark.',
+  'walked-past':
+    'Your phone has already been past that spot, so the wall is further back. If furniture hides its bottom edge, aim at its top edge.',
+  furniture:
+    'A bed, desk or table reaches past that spot, so the wall is further back. Aim at its top edge instead.',
+  'on-furniture':
+    'The dot is on furniture. Aim where the wall meets the floor, or at its top edge.',
   'not-this-wall': 'Aim at the top of the same wall you just marked.',
   'not-a-ceiling':
     'That does not look like the top of this wall. Aim where the wall meets the ceiling.',
@@ -292,6 +514,9 @@ export const AIM_LABELS: Record<AimError, string> = {
   'too-close-to-first': 'Further along the wall',
   'under-phone': 'Aim at a wall',
   diagonal: 'Face the wall',
+  'walked-past': 'The wall is further back',
+  furniture: 'Furniture in the way',
+  'on-furniture': 'On furniture',
   'not-this-wall': 'The same wall',
   'not-a-ceiling': 'Aim at the ceiling line',
 };
@@ -335,6 +560,7 @@ function aimFor(
   first: FirstWall,
   ceiling: CeilingInfo | null,
   axes: RoomAxes | null,
+  tops: readonly FurnitureTop[],
 ): Aim {
   const camera = state.camera;
   if (!camera) return miss('no-camera');
@@ -355,6 +581,7 @@ function aimFor(
     const hit = hitLevelPlane(ray, floorY);
     if (!hit.ok) return miss(hit.reason === 'too-far' ? 'too-far' : 'aim-lower', 'floor');
     if (hit.distance < UNDER_PHONE) return miss('under-phone', 'floor', hit.point, floorY);
+    if (rayOnFurniture(ray, floorY, tops)) return miss('on-furniture', 'floor', hit.point, floorY);
     const a = first.a;
     if (step === 'second-mark' && a) {
       const span = Math.hypot(hit.point.x - a.x, hit.point.z - a.z);
@@ -378,10 +605,20 @@ function aimFor(
   const y = edge === 'floor' ? floorY : floorY + (ceiling?.height ?? DEFAULT_CEILING_HEIGHT);
   const hit = hitLevelPlane(ray, y);
   if (!hit.ok) return miss(hit.reason, edge);
+  if (edge === 'floor' && rayOnFurniture(ray, y, tops)) {
+    return miss('on-furniture', edge, hit.point, y);
+  }
   const placed = placeMark(hit.point, cam, axes);
   if (!placed.ok) {
     return miss(placed.reason === 'diagonal' ? 'diagonal' : 'under-phone', edge, hit.point, y);
   }
+  const evidence = wallEvidence(
+    { ...placed, alongFrom: placed.along, alongTo: placed.along },
+    axes,
+    state.visited,
+    tops,
+  );
+  if (evidence) return miss(evidence, edge, hit.point, y);
   return ok(edge, hit.point, y, hit.distance, placed);
 }
 
@@ -485,7 +722,7 @@ function planeWalls(
 export interface WallView {
   a: Vec2;
   b: Vec2;
-  /** Index into the grouped walls. */
+  /** Index into the grouped walls; -1 for a wall that was ruled out (`ScanDerived.dropped`). */
   wall: number;
   /** Part of the room that no mark is on (filled in). */
   inferred: boolean;
@@ -505,9 +742,6 @@ export interface MarkView {
   /** Index into the grouped walls (wall and first-wall marks). */
   wall: number | null;
 }
-
-/** How far a wall is drawn past its marks when no crossing wall ends it yet (m). */
-const OPEN_END = 0.6;
 
 function wallViews(grouped: GroupedWalls, room: RectilinearResult | null): WallView[] {
   const fromPlanes = (i: number) =>
@@ -597,6 +831,8 @@ export interface ScanDerived {
   walls: WallView[];
   /** The walls joined into a room, every one of them; null before the walls step. */
   room: RectilinearResult | null;
+  /** Walls left out because the phone's path or a furniture top rules them out (drawn red). */
+  dropped: DroppedWall[];
   /** Every wall fits and the room is closed: the scan can finish by itself. */
   closed: boolean;
   /** Test mode: what happened to each vertical plane. */
@@ -652,19 +888,31 @@ export function deriveScan(state: ScanState): ScanDerived {
     return { id: m.id, role: m.role, edge: m.edge, point, y: point ? y : null, wall: null };
   });
 
+  const tops = floorY === null ? [] : furnitureTops(state, floorY);
   let grouped: GroupedWalls | null = null;
   let planeChecks: PlaneWallCheck[] = [];
+  let dropped: DroppedWall[] = [];
+  let used = inputs;
   if (startAxes) {
-    grouped = groupWallMarks(inputs, startAxes);
+    grouped = groupWallMarks(used, startAxes);
+    if (step === 'walls') {
+      // A wall where the phone has been, or that furniture reaches through, is left out.
+      const ruled = contradictedWalls(state, grouped, tops);
+      if (ruled.dropped.length > 0) {
+        dropped = ruled.dropped;
+        used = inputs.filter((i) => !ruled.markIds.has(i.id));
+        grouped = groupWallMarks(used, startAxes);
+      }
+    }
     if (state.options.useDetectedWalls && step === 'walls') {
       const fromPlanes = planeWalls(state, grouped.axes, grouped);
       planeChecks = fromPlanes.checks;
       if (fromPlanes.inputs.length > 0) {
-        grouped = groupWallMarks([...inputs, ...fromPlanes.inputs], startAxes);
+        grouped = groupWallMarks([...used, ...fromPlanes.inputs], startAxes);
       }
     }
     grouped.wallOf.forEach((w, k) => {
-      if (k < inputs.length) markWall.set(inputs[k]!.id, w);
+      if (k < used.length) markWall.set(used[k]!.id, w);
     });
   }
   const room =
@@ -673,9 +921,21 @@ export function deriveScan(state: ScanState): ScanDerived {
           ceilingHeight: ceiling?.height ?? DEFAULT_CEILING_HEIGHT,
         })
       : null;
-  const walls = grouped ? wallViews(grouped, room) : [];
+  const walls = grouped
+    ? [
+        ...wallViews(grouped, room),
+        ...dropped.map(({ a, b }) => ({
+          a,
+          b,
+          wall: -1,
+          inferred: false,
+          conflict: true,
+          fromPlanes: false,
+        })),
+      ]
+    : [];
   const axes = grouped?.axes ?? null;
-  const aim = aimFor(state, step, first, ceiling, axes);
+  const aim = aimFor(state, step, first, ceiling, axes, tops);
   const status = floorStatus(state.floor, state.planes, cameraY);
   const roomState =
     room === null
@@ -692,6 +952,7 @@ export function deriveScan(state: ScanState): ScanDerived {
       step,
       floorStatus: status,
       room: roomState,
+      ruledOut: dropped[0]?.evidence ?? null,
       turn: step === 'walls' && grouped ? nextWallTurn(grouped, heading) : null,
     });
 
@@ -709,6 +970,7 @@ export function deriveScan(state: ScanState): ScanDerived {
     grouped,
     walls,
     room,
+    dropped,
     closed: room?.ok === true,
     planeWalls: planeChecks,
     message,

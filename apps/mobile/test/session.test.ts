@@ -258,6 +258,62 @@ describe('closing the room', () => {
   });
 });
 
+describe('walls that cannot be there', () => {
+  /** Carries the phone to `at` and a step on (two points of its path), then back to the middle. */
+  const walkTo = (s: ScanState, at: { x: number; z: number }): ScanState => {
+    let t = aim(s, [at.x + 1, 0, at.z], [at.x, 1.4, at.z]);
+    t = aim(t, [at.x + 1, 0, at.z + 0.3], [at.x, 1.4, at.z + 0.3]);
+    return aim(t, [0, 0, -1]);
+  };
+  /** A bed against the east wall: its top 55 cm up, from x = 0.5 to the wall. */
+  const bed = () => plane(floorAnchor('bed', 0.55, { x: 1.0, z: 0.5, size: 1.0 }));
+
+  it('refuses a wall where the phone has already been, and takes its top edge', () => {
+    const s = walkTo(withFirstWall(), { x: 1.3, z: 0 });
+    // A bed hides the east wall's bottom edge: the dot lands on the floor in front of it.
+    expect(tryMark(s, [0.6, 0, 0.2]).outcome).toMatchObject({ error: 'walked-past' });
+    expect(tryMark(s, [W, CEILING, 0.2]).outcome).toMatchObject({ kind: 'marked' });
+  });
+
+  it('refuses a wall that a furniture top reaches through, and a dot on furniture', () => {
+    const s = upsertPlane(withFirstWall(), bed());
+    expect(tryMark(s, [0.7, 0, 0.3]).outcome).toMatchObject({ error: 'furniture' });
+    // Aimed past the bed at the bottom of the wall: the bed is in the way.
+    expect(tryMark(s, [W, 0, 0.5]).outcome).toMatchObject({ error: 'on-furniture' });
+    expect(tryMark(s, [W, CEILING, 0.5]).outcome).toMatchObject({ kind: 'marked' });
+  });
+
+  it('leaves out a wall marked before the phone went past it, until it is marked again', () => {
+    let s = withFirstWall();
+    s = mark(s, [0.6, 0, 0.2]); // east, in front of the bed: too close, and nothing knows yet
+    s = mark(s, [-0.2, CEILING, D]); // south
+    expect(deriveScan(s).dropped).toEqual([]);
+    s = walkTo(s, { x: 1.3, z: 0 });
+    let d = deriveScan(s);
+    expect(d.dropped).toMatchObject([{ evidence: 'walked-past', wall: { markIds: ['m4'] } }]);
+    expect(d.walls.filter((w) => w.conflict && w.wall === -1)).toHaveLength(1);
+    expect(d.message.title).toBe('The red wall is further back');
+    s = mark(s, [-W, 0, 0.2]); // west
+    expect(deriveScan(s).closed).toBe(false);
+    s = mark(s, [W, CEILING, 0.2]); // east again, at its top edge
+    d = deriveScan(s);
+    expect(d.closed).toBe(true);
+    const r = finishScan(s);
+    expect(r.ok && roomArea(r.room)).toBeCloseTo(2 * W * 2 * D, 1);
+  });
+
+  it('keeps the path only after the first mark and while tracking is normal', () => {
+    let s = aim(ready(), [2, 0, 0], [1.4, 1.4, 0]);
+    expect(s.visited).toEqual([]);
+    s = mark(s, [-1, 0, -D]);
+    s = aim(setTracking(s, { state: 2, reason: 2 }), [2, 0, 0], [1.4, 1.4, 0]);
+    expect(s.visited).toEqual([]);
+    s = aim(setTracking(s, { state: 3, reason: 1 }), [2, 0, 0], [1.4, 1.4, 0]);
+    s = aim(s, [2, 0, 0], [1.45, 1.4, 0.05]); // under 20 cm on: not kept
+    expect(s.visited).toEqual([{ x: 1.4, z: 0 }]);
+  });
+});
+
 describe('Undo', () => {
   it('takes back marks one at a time, through every step', () => {
     const s = rectangleScan();

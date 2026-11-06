@@ -127,6 +127,14 @@ export function buildScanLog(
       along: w.along.map((t) => r(t, 3)),
       offsets: w.offsets.map((t) => r(t)),
     })),
+    droppedWalls: derived.dropped.map(({ wall, evidence }) => ({
+      axis: wall.axis,
+      facing: wall.facing,
+      offset: r(wall.offset),
+      markIds: wall.markIds,
+      evidence,
+    })),
+    visitedCount: state.visited.length,
     result: derived.room
       ? derived.room.ok
         ? { closed: true, error: null, conflicting: [] }
@@ -136,6 +144,12 @@ export function buildScanLog(
     refusedMarks: Object.fromEntries(
       Object.entries(record.refusedMarks).map(([k, n]) => [k, n ?? 0]),
     ),
+    refusals: record.refusals.map((f) => ({
+      t: f.t,
+      error: f.error,
+      origin: r3(f.origin),
+      direction: r3(f.direction, 5),
+    })),
     planeWalls: derived.planeWalls.map((c) => ({
       planeId: c.planeId,
       verdict: c.verdict,
